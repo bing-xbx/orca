@@ -4,7 +4,9 @@ import {
   useRef,
   useState,
   type ChangeEvent,
-  type RefObject
+  type MutableRefObject,
+  type RefObject,
+  type SyntheticEvent
 } from 'react'
 import {
   getBrowserAddressBarInlineCompletion,
@@ -20,16 +22,21 @@ export type BrowserAddressBarInlineCompletion = { url: string; text: string }
 export function useBrowserAddressBarInlineCompletion({
   inputRef,
   value,
-  buildSuggestions
+  buildSuggestions,
+  prePreviewValueRef
 }: {
   inputRef: RefObject<HTMLInputElement | null>
   value: string
   buildSuggestions: (query: string, inlineAllowed: boolean) => BrowserAddressBarSuggestion[]
+  /** Holds the typed text while a completion shows; cleared once the completion is accepted. */
+  prePreviewValueRef: MutableRefObject<string | null>
 }): {
   inline: BrowserAddressBarInlineCompletion | null
   /** The bar text for this edit when it completes inline; null keeps what was typed. */
   completeTyping: (event: ChangeEvent<HTMLInputElement>, typed: string) => string | null
   clearInline: () => void
+  /** Moving the caret off the completion (ArrowRight, End, a click) accepts it as typed text. */
+  acceptOnCaretMove: (event: SyntheticEvent<HTMLInputElement>) => void
 } {
   const [inline, setInline] = useState<BrowserAddressBarInlineCompletion | null>(null)
   const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null)
@@ -59,7 +66,26 @@ export function useBrowserAddressBarInlineCompletion({
 
   const clearInline = useCallback(() => setInline(null), [])
 
-  return { inline, completeTyping, clearInline }
+  const acceptOnCaretMove = useCallback(
+    (event: SyntheticEvent<HTMLInputElement>): void => {
+      const input = event.currentTarget
+      const typed = prePreviewValueRef.current
+      if (
+        !inline ||
+        typed === null ||
+        input.value !== inline.text ||
+        (input.selectionStart === typed.length && input.selectionEnd === inline.text.length)
+      ) {
+        return
+      }
+      // Why: otherwise a later blur or Escape would put the bar back to the typed prefix.
+      prePreviewValueRef.current = null
+      setInline(null)
+    },
+    [inline, prePreviewValueRef]
+  )
+
+  return { inline, completeTyping, clearInline, acceptOnCaretMove }
 }
 
 // Why typing only: like Chrome, a paste, an IME composition or a deletion never completes,

@@ -358,7 +358,9 @@ describe('getBrowserAddressBarInlineCompletion', () => {
     ['git hub', 'https://github.com/'],
     ['fi', 'file:///Users/me/report.html'],
     // Paths are case-sensitive, so /D must not complete to (and then open) /docs.
-    ['example.com/D', 'https://example.com/docs']
+    ['example.com/D', 'https://example.com/docs'],
+    // Submit would search for a bare single-label word, so it must not look like an address.
+    ['in', 'https://intranet/docs']
   ])('does not complete %s against %s', (typed, url) => {
     expect(getBrowserAddressBarInlineCompletion(typed, url)).toBeNull()
   })

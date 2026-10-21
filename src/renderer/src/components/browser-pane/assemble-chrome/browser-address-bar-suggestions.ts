@@ -225,7 +225,12 @@ export function getBrowserAddressBarInlineCompletion(
   // exactly where that text goes: the typed site for a host, the visited page for a path.
   const text = typed + form.slice(typed.length)
   const target = normalizeBrowserNavigationUrl(text)
-  if (!target || (!withinHost && target !== normalizeBrowserNavigationUrl(url))) {
+  if (
+    !target ||
+    // A single-label host like "intranet" is a search to the submit path, not an address.
+    normalizeBrowserNavigationUrl(text, DEFAULT_SEARCH_ENGINE) !== target ||
+    (!withinHost && target !== normalizeBrowserNavigationUrl(url))
+  ) {
     return null
   }
   return { text, url: target }

@@ -230,6 +230,33 @@ describe('BrowserAddressBar autocomplete preview', () => {
     expect(onNavigate).not.toHaveBeenCalled()
   })
 
+  it('keeps an inline completion the caret has moved past when the bar loses focus', async () => {
+    await act(async () => {
+      root.render(<AddressBarHarness initialValue="" onNavigate={vi.fn()} onSubmit={vi.fn()} />)
+    })
+    const input = container.querySelector<HTMLInputElement>('input[data-orca-browser-address-bar]')
+    if (!input) {
+      throw new Error('address bar input missing')
+    }
+    await act(async () => {
+      input.focus()
+    })
+    await act(async () => typeInto(input, 'loc', 'insertText'))
+    await act(async () => {
+      // ArrowRight: the caret lands at the end of the completion.
+      input.setSelectionRange(14, 14)
+      input.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', bubbles: true }))
+    })
+    await act(async () => {
+      input.blur()
+      vi.advanceTimersByTime(250)
+    })
+
+    expect(container.querySelector('[data-current-address-value="true"]')?.textContent).toBe(
+      'localhost:3000'
+    )
+  })
+
   it('switches to the tab already showing a suggestion when Tab then Enter picks its button', async () => {
     mocks.openPageUrl = 'http://localhost:3000/review-one'
     const onNavigate = vi.fn()
