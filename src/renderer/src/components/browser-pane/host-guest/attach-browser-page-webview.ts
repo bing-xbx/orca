@@ -50,7 +50,6 @@ export type AttachBrowserPageWebviewArgs = {
   faviconUrlRef: MutableRefObject<string | null>
   addressBarInputRef: RefObject<HTMLInputElement | null>
   lastKnownWebviewUrlRef: MutableRefObject<string | null>
-  trackNextLoadingEventRef: MutableRefObject<boolean>
   invalidateBrowserAnnotationDocumentRef: MutableRefObject<() => void>
   onSetUrlRef: MutableRefObject<BrowserPageUrlSetter>
   setBrowserOverlayViewport: Dispatch<SetStateAction<BrowserOverlayViewport>>

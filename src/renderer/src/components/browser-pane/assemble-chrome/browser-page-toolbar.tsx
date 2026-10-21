@@ -44,6 +44,7 @@ export function BrowserPageToolbar({
   convertedFrom,
   convertedTo,
   loading,
+  loadFailed,
   webviewRef,
   reloadMenuOpen,
   setReloadMenuOpen,
@@ -84,6 +85,7 @@ export function BrowserPageToolbar({
   /** Set on a page Back returned to; Forward re-crosses it once guest history runs out. */
   convertedTo?: BrowserPageConversionOrigin | null
   loading: boolean
+  loadFailed: boolean
   webviewRef: RefObject<Electron.WebviewTag | null>
   reloadMenuOpen: boolean
   setReloadMenuOpen: Dispatch<SetStateAction<boolean>>
@@ -175,6 +177,8 @@ export function BrowserPageToolbar({
           inputRef={addressBarInputRef}
           dismissSuggestionsRef={dismissAddressBarSuggestionsRef}
           leadingIcon={<SshEgressIndicator worktreeId={worktreeId} />}
+          loading={loading}
+          loadFailed={loadFailed}
         />
       }
       reloadControl={

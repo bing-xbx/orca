@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react'
-import { Loader2, RefreshCw } from 'lucide-react'
+import { RefreshCw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -71,11 +71,7 @@ export function BrowserReloadControl({
                 onMenuOpenChange(true)
               }}
             >
-              {loading ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <RefreshCw className="size-4" />
-              )}
+              {loading ? <X className="size-4" /> : <RefreshCw className="size-4" />}
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>

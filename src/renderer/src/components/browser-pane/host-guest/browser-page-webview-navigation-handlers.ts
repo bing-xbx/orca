@@ -100,6 +100,9 @@ export function createBrowserPageWebviewNavigationHandlers({
     if (!event.isMainFrame || event.isInPlace || !event.url) {
       return
     }
+    // Why here and not did-start-loading: that also fires for iframe loads, and this covers
+    // navigations the page starts itself (links, forms, redirects, history) as well as Orca's.
+    onUpdatePageStateRef.current(browserTabId, { loading: true })
     const pendingRecoveryNavigation = recoveryNavigationValidationRef.current
     const browserStartedUrl = redactKagiSessionToken(event.url)
     const startedUrl = normalizeBrowserNavigationUrl(browserStartedUrl) ?? browserStartedUrl

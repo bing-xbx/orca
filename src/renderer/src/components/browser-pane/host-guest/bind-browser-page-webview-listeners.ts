@@ -53,7 +53,6 @@ export function bindBrowserPageWebviewListeners({
     faviconUrlRef,
     addressBarInputRef,
     lastKnownWebviewUrlRef,
-    trackNextLoadingEventRef,
     invalidateBrowserAnnotationDocumentRef,
     onSetUrlRef,
     setBrowserOverlayViewport,
@@ -101,7 +100,6 @@ export function bindBrowserPageWebviewListeners({
       addressBarInputRef,
       activeLoadFailureRef,
       lastKnownWebviewUrlRef,
-      trackNextLoadingEventRef,
       keepAddressBarFocusRef,
       recoveryNavigationValidationRef,
       invalidateBrowserAnnotationDocumentRef,
@@ -165,10 +163,9 @@ export function bindBrowserPageWebviewListeners({
   webview.addEventListener('console-message', handleAnnotationViewportMessage)
 
   if (needsInitialNavigation) {
-    // Why: set src only after listeners attach so a fast localhost failure isn't missed; only non-blank tabs show the loading indicator.
+    // Why: set src only after listeners attach so a fast localhost failure isn't missed.
     const initialUrl =
       normalizeBrowserNavigationUrl(initialBrowserUrlRef.current) ?? ORCA_BROWSER_BLANK_URL
-    trackNextLoadingEventRef.current = initialUrl !== ORCA_BROWSER_BLANK_URL
     lastKnownWebviewUrlRef.current = initialUrl
     webview.src = initialUrl
   } else if (isPaintableRef.current) {

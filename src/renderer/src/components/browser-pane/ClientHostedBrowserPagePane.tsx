@@ -256,7 +256,11 @@ export function ClientHostedBrowserPagePane({
       recordHistoryFromGuest(metadata.url, getBrowserDisplayTitle(metadata.title, metadata.url))
       setAddressBarValueFromPage(toDisplayUrl(metadata.url))
     }
-    const onStart = (): void => {
+    const onStart = (event: Electron.DidStartNavigationEvent): void => {
+      // Why not did-start-loading: that also fires for iframe loads, which aren't page loads.
+      if (!event.isMainFrame || event.isInPlace) {
+        return
+      }
       activeLoadFailureRef.current = null
       updatePageStateFromGuest(browserTab.id, { loading: true, loadError: null })
       const startMetadata = readBrowserClientPageGuestMetadataIfLive(webview, undefined, true)
@@ -275,7 +279,7 @@ export function ClientHostedBrowserPagePane({
       }
     )
     const cleanupGuest = (): void => {
-      webview.removeEventListener('did-start-loading', onStart)
+      webview.removeEventListener('did-start-navigation', onStart)
       webview.removeEventListener('did-stop-loading', syncNavigation)
       webview.removeEventListener('did-navigate', syncNavigation)
       webview.removeEventListener('did-navigate-in-page', syncNavigation)
@@ -287,7 +291,7 @@ export function ClientHostedBrowserPagePane({
       attachment.detach()
     }
     releaseGuest = cleanupGuest
-    webview.addEventListener('did-start-loading', onStart)
+    webview.addEventListener('did-start-navigation', onStart)
     webview.addEventListener('did-stop-loading', syncNavigation)
     webview.addEventListener('did-navigate', syncNavigation)
     webview.addEventListener('did-navigate-in-page', syncNavigation)
@@ -330,6 +334,10 @@ export function ClientHostedBrowserPagePane({
     showFailureOverlay
   })
 
+  // Why the unrecovered case reads not-loading: nothing is coming, and a loading cue nobody
+  // will ever stop is the one state this pane must not sit in.
+  const loading = !restoredPageUnrecovered && (placement === null || browserTab.loading)
+
   return (
     <div className="relative flex h-full min-h-0 flex-1 flex-col bg-background">
       {/* IPC-driven context menu in a Portal so position:fixed escapes ancestor transform/backdrop-filter containing blocks. */}
@@ -346,9 +354,7 @@ export function ClientHostedBrowserPagePane({
           controls={{
             canGoBack: browserTab.canGoBack,
             canGoForward: browserTab.canGoForward,
-            // Why the unrecovered case reads not-loading: nothing is coming, and a spinner nobody
-            // will ever stop is the one state this pane must not sit in.
-            loading: !restoredPageUnrecovered && (placement === null || browserTab.loading),
+            loading,
             goBack: () => webviewRef.current?.goBack(),
             goForward: () => webviewRef.current?.goForward(),
             reload: () => reload.runReloadTrigger('button'),
@@ -371,6 +377,8 @@ export function ClientHostedBrowserPagePane({
                   presentation="client-hosted"
                 />
               }
+              loading={loading}
+              loadFailed={browserTab.loadError !== null}
             />
           }
           reloadLabel={reload.reloadButtonLabel}

@@ -119,7 +119,6 @@ export function BrowserPagePane({
   const browserTabUrlRef = useRef(browserTab.url)
   // Most-recent observed webview URL; URL sync checks it to avoid force-navigating to an intermediate redirect (which would loop the redirect chain).
   const lastKnownWebviewUrlRef = useRef<string | null>(null)
-  const trackNextLoadingEventRef = useRef(false)
   const recoveryNavigationValidationRef = useRef<{
     committed: boolean
     started: boolean
@@ -189,7 +188,6 @@ export function BrowserPagePane({
     webviewRef,
     activeLoadFailureRef,
     lastKnownWebviewUrlRef,
-    trackNextLoadingEventRef,
     recoveryNavigationValidationRef,
     onSetUrlRef,
     onUpdatePageStateRef,
@@ -235,7 +233,6 @@ export function BrowserPagePane({
     faviconUrl: browserTab.faviconUrl,
     webviewRef,
     lastKnownWebviewUrlRef,
-    trackNextLoadingEventRef,
     recoveryNavigationValidationRef,
     activeLoadFailureRef,
     retryGuestRecoveryRef,
@@ -252,7 +249,6 @@ export function BrowserPagePane({
     webviewRef,
     chromeHeaderRef,
     lastKnownWebviewUrlRef,
-    trackNextLoadingEventRef,
     keepAddressBarFocusRef,
     addressBarInputRef,
     browserTabUrlRef,
@@ -263,7 +259,6 @@ export function BrowserPagePane({
   const reload = useBrowserPageReloadActions({
     browserTab,
     webviewRef,
-    trackNextLoadingEventRef,
     retryGuestRecoveryRef,
     onUpdatePageStateRef
   })

@@ -395,6 +395,7 @@ export function RemoteBrowserPagePane({
         addressBarEditSession={addressBarEditSession}
         busy={busy}
         loading={browserTab.loading}
+        loadFailed={browserTab.loadError !== null}
         markup={markup}
         frameUrl={frameUrl}
         isActive={isActive}

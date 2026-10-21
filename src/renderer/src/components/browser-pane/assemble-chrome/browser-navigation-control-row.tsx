@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Loader2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ArrowRight, RefreshCw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
@@ -84,11 +84,7 @@ export function BrowserNavigationControlRow({
           onClick={controls.reload}
           aria-label={reloadLabel ?? translate('browser.navigation.reload', 'Reload')}
         >
-          {controls.loading ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <RefreshCw className="size-4" />
-          )}
+          {controls.loading ? <X className="size-4" /> : <RefreshCw className="size-4" />}
         </Button>
       )}
 

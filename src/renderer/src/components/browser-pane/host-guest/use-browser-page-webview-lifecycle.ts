@@ -66,7 +66,6 @@ export function useBrowserPageWebviewLifecycle({
   faviconUrl,
   webviewRef,
   lastKnownWebviewUrlRef,
-  trackNextLoadingEventRef,
   recoveryNavigationValidationRef,
   activeLoadFailureRef,
   retryGuestRecoveryRef,
@@ -107,7 +106,6 @@ export function useBrowserPageWebviewLifecycle({
   faviconUrl: string | null
   webviewRef: MutableRefObject<Electron.WebviewTag | null>
   lastKnownWebviewUrlRef: MutableRefObject<string | null>
-  trackNextLoadingEventRef: MutableRefObject<boolean>
   recoveryNavigationValidationRef: MutableRefObject<BrowserPageRecoveryNavigationValidation | null>
   activeLoadFailureRef: MutableRefObject<BrowserLoadError | null>
   retryGuestRecoveryRef: MutableRefObject<() => void>
@@ -267,7 +265,6 @@ export function useBrowserPageWebviewLifecycle({
       faviconUrlRef,
       addressBarInputRef,
       lastKnownWebviewUrlRef,
-      trackNextLoadingEventRef,
       invalidateBrowserAnnotationDocumentRef,
       onSetUrlRef,
       setBrowserOverlayViewport,
