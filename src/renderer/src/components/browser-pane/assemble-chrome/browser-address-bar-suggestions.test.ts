@@ -355,7 +355,9 @@ describe('getBrowserAddressBarInlineCompletion', () => {
   it.each([
     ['orca', 'https://github.com/stablyai/orca'],
     ['git hub', 'https://github.com/'],
-    ['fi', 'file:///Users/me/report.html']
+    ['fi', 'file:///Users/me/report.html'],
+    // Paths are case-sensitive, so /D must not complete to (and then open) /docs.
+    ['example.com/D', 'https://example.com/docs']
   ])('does not complete %s against %s', (typed, url) => {
     expect(getBrowserAddressBarInlineCompletion(typed, url)).toBeNull()
   })
