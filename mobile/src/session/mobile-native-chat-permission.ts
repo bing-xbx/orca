@@ -1,5 +1,6 @@
 import { nativeChatApprovalAcceptKey } from '../../../src/shared/native-chat-agent-support'
 import type { AgentJournalApprovalSubject } from '../../../src/shared/agent-session-journal-types'
+import { parseOmpPlanReviewPrompt } from '../../../src/shared/omp-plan-review-prompt'
 
 // Agent permission asks (e.g. Claude/Codex "Do you want to proceed?") surface
 // as plain TUI text in the agent's last assistant message — there is no
@@ -25,6 +26,21 @@ export type MobileChatPermission = {
 }
 
 const ESCAPE = String.fromCharCode(27)
+
+/** OMP's plan review envelope: exact agent-emitted options, so no heuristic may replace it. */
+export function parseOmpPlanReviewFromStatus(
+  interactivePrompt: string | undefined | null
+): MobileChatPermission | null {
+  const planReview = parseOmpPlanReviewPrompt(interactivePrompt)
+  return planReview
+    ? {
+        title: 'Review proposed plan',
+        description: 'Refine plan closes the review so you can send what to change.',
+        subject: { kind: 'plan', text: planReview.plan },
+        options: planReview.options
+      }
+    : null
+}
 
 /** Parse the live `agentStatus.interactivePrompt` approval envelope
  *  (`{ approval: { tool, summary } }`, emitted by the host on a PermissionRequest)
