@@ -34,18 +34,21 @@ export function useBrowserAddressBarInlineCompletion({
   /** Moving the caret off the completion (ArrowRight, End, a click) accepts it as typed text. */
   acceptOnCaretMove: (event: SyntheticEvent<HTMLInputElement>) => void
 } {
-  const [inlineText, setInlineText] = useState<string | null>(null)
+  // Why an object: the next keystroke often completes to the same text, and a fresh object still
+  // re-renders so the selection below is put back after React restores the input's value.
+  const [inline, setInline] = useState<{ text: string } | null>(null)
+  const inlineText = inline?.text ?? null
   const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null)
 
   useLayoutEffect(() => {
     const range = pendingSelectionRef.current
     const input = inputRef.current
-    if (!range || !input || input.value !== inlineText) {
+    if (!range || !input || input.value !== inline?.text) {
       return
     }
     pendingSelectionRef.current = null
     input.setSelectionRange(range.start, range.end)
-  }, [inlineText, inputRef, value])
+  }, [inline, inputRef, value])
 
   const completeTyping = useCallback(
     (event: ChangeEvent<HTMLInputElement>, typed: string): string | null => {
@@ -53,7 +56,7 @@ export function useBrowserAddressBarInlineCompletion({
         ? (buildSuggestions(typed, true)[0]?.inlineText ?? null)
         : null
       const completed = text !== null && text.length > typed.length ? text : null
-      setInlineText(completed)
+      setInline(completed === null ? null : { text: completed })
       if (completed !== null) {
         pendingSelectionRef.current = { start: typed.length, end: completed.length }
       }
@@ -62,7 +65,7 @@ export function useBrowserAddressBarInlineCompletion({
     [buildSuggestions]
   )
 
-  const clearInline = useCallback(() => setInlineText(null), [])
+  const clearInline = useCallback(() => setInline(null), [])
 
   const acceptOnCaretMove = useCallback(
     (event: SyntheticEvent<HTMLInputElement>): void => {
@@ -78,7 +81,7 @@ export function useBrowserAddressBarInlineCompletion({
       }
       // Why: otherwise a later blur or Escape would put the bar back to the typed prefix.
       prePreviewValueRef.current = null
-      setInlineText(null)
+      setInline(null)
     },
     [inlineText, prePreviewValueRef]
   )
