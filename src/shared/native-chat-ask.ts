@@ -82,6 +82,27 @@ for (const name of ['AskUserQuestion', 'ask_user_question', 'askUserQuestion']) 
   QUESTION_TOOL_PARSERS.set(name, parseCanonicalQuestionsInput)
 }
 
+/** Codex's non-blocking question: `{questions:[{title, options?: string[]}]}`. It
+ *  returns `{"accepted":true}` at once and reads the answer from a later user message. */
+export const CODEX_ASYNC_QUESTION_TOOL = 'request_user_input_async'
+
+function parseCodexAsyncQuestionsInput(input: unknown): AskPrompt | null {
+  if (!input || typeof input !== 'object' || !('questions' in input)) {
+    return null
+  }
+  const rawQuestions = Array.isArray(input.questions) ? input.questions : []
+  const questions: AskQuestion[] = []
+  for (const raw of rawQuestions) {
+    if (raw && typeof raw === 'object' && 'title' in raw && typeof raw.title === 'string') {
+      const options = parseOptions('options' in raw ? raw.options : undefined)
+      questions.push({ question: raw.title, multiSelect: false, options })
+    }
+  }
+  return questions.length > 0 ? { questions, replyAsMessage: true } : null
+}
+
+QUESTION_TOOL_PARSERS.set(CODEX_ASYNC_QUESTION_TOOL, parseCodexAsyncQuestionsInput)
+
 function parseToolInput(toolName: string | undefined, input: unknown): AskPrompt | null {
   const parser = toolName ? QUESTION_TOOL_PARSERS.get(toolName) : undefined
   return (parser ? parser(input) : null) ?? parseCanonicalQuestionsInput(input)
@@ -137,10 +158,13 @@ export function extractPendingAsk(messages: readonly NativeChatMessage[]): AskPr
     }
     for (const block of message.blocks) {
       if (block.type === 'tool-call') {
-        const parsed = parseToolInput(block.name, block.input)
+        const parsed = QUESTION_TOOL_PARSERS.has(block.name)
+          ? parseAskFromToolInput(block.name, block.input)
+          : parseToolInput(block.name, block.input)
         if (parsed) {
           pending = parsed
-          pendingDepth = outstanding
+          // Its immediate result only confirms display, so only the user's next message ends it.
+          pendingDepth = parsed.replyAsMessage ? -1 : outstanding
         }
         outstanding += 1
       } else if (block.type === 'tool-result' && outstanding > 0) {
@@ -155,6 +179,15 @@ export function extractPendingAsk(messages: readonly NativeChatMessage[]): AskPr
     }
   }
   return pending
+}
+
+/** A structured chat's pending question from its messages: blocking ones arrive as journal
+ *  prompts, so only one answered by an ordinary message is left to read here. */
+export function extractPendingMessageReplyAsk(
+  messages: readonly NativeChatMessage[]
+): AskPrompt | null {
+  const prompt = extractPendingAsk(messages)
+  return prompt?.replyAsMessage ? prompt : null
 }
 
 /** Prefers live status and consults transcript history only after its read settles. */
@@ -194,8 +227,18 @@ function answerLabels(question: AskQuestion, sel: AskAnswerSelection | undefined
 /** Build the human-readable answer text: one line per question, in question
  *  order, each the selected label(s) + free text joined by ", ". Empty answers
  *  stay empty lines so N lines always == N questions. Used for agents whose
- *  question tool commits a pasted answer (not Claude's arrow-navigate selector). */
+ *  question tool commits a pasted answer (not Claude's arrow-navigate selector).
+ *  A `replyAsMessage` answer arrives detached from its question, so it quotes each
+ *  answered question in the `> question\n\nanswer` form Codex's own clients send. */
 export function formatAskAnswer(prompt: AskPrompt, selections: AskAnswerSelection[]): string {
+  if (prompt.replyAsMessage) {
+    return prompt.questions
+      .flatMap((q, i) => {
+        const answer = answerLabels(q, selections[i]).join(', ')
+        return answer ? [`> ${q.question.replaceAll(/[\r\n]+/g, ' ')}\n\n${answer}`] : []
+      })
+      .join('\n\n')
+  }
   return prompt.questions.map((q, i) => answerLabels(q, selections[i]).join(', ')).join('\n')
 }
 
