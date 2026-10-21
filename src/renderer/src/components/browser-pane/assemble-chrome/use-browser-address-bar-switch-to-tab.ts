@@ -4,7 +4,8 @@ import { useAppStore } from '@/store'
 import { findPage } from '@/store/slices/browser-page-records'
 import {
   buildOpenTabSearchBrowserPages,
-  selectOpenTabSearchEntryState
+  selectOpenTabSearchEntryState,
+  type OpenTabSearchBrowserPageState
 } from '@/components/tab-bar/open-tab-search-entries'
 import {
   activateBrowserPagePaletteResult,
@@ -17,6 +18,22 @@ import { toDisplayUrl } from '../describe-page/browser-page-url-display'
 import type { BrowserAddressBarSuggestion } from './browser-address-bar-suggestions'
 
 type SwitchableRow = Pick<BrowserAddressBarSuggestion, 'url' | 'isSearch' | 'docLocation'>
+
+function pickBrowserPageState(entry: OpenTabSearchBrowserPageState): OpenTabSearchBrowserPageState {
+  return {
+    activeBrowserTabId: entry.activeBrowserTabId,
+    activeTabType: entry.activeTabType,
+    activeWorktreeId: entry.activeWorktreeId,
+    browserPagesByWorkspace: entry.browserPagesByWorkspace,
+    browserTabsByWorktree: entry.browserTabsByWorktree,
+    executionHostId: entry.executionHostId,
+    folderWorkspaces: entry.folderWorkspaces,
+    repo: entry.repo,
+    unifiedTabsByWorktree: entry.unifiedTabsByWorktree,
+    worktree: entry.worktree,
+    worktreesByRepo: entry.worktreesByRepo
+  }
+}
 
 // Why not the history key: it drops any final "/", which can be part of a path or query value.
 function pageKey(url: string): string {
@@ -67,14 +84,17 @@ export function useBrowserAddressBarSwitchToTab({
         return null
       }
       const page = findPage(state.browserPagesByWorkspace, pageId)
-      return page ? selectOpenTabSearchEntryState(state, page.worktreeId) : null
+      const entry = page ? selectOpenTabSearchEntryState(state, page.worktreeId) : null
+      // Why picked: the full entry state also follows terminal titles and editor tabs, which
+      // would re-render the open bar on every agent update.
+      return entry && pickBrowserPageState(entry)
     })
   )
 
-  const { targets, pageUrl } = useMemo(() => {
+  const targets = useMemo(() => {
     const byUrl = new Map<string, BrowserPagePaletteActivationTarget>()
     if (!entryState) {
-      return { targets: byUrl, pageUrl: null }
+      return byUrl
     }
     for (const entry of buildOpenTabSearchBrowserPages(entryState)) {
       const key = pageKey(entry.page.url)
@@ -88,10 +108,7 @@ export function useBrowserAddressBarSwitchToTab({
         worktreeId: entry.worktree.id
       })
     }
-    return {
-      targets: byUrl,
-      pageUrl: findPage(entryState.browserPagesByWorkspace, pageId)?.url ?? null
-    }
+    return byUrl
   }, [entryState, pageId])
 
   const targetFor = useCallback(
@@ -132,11 +149,12 @@ export function useBrowserAddressBarSwitchToTab({
       }
       if (activation.status === 'activated') {
         // Why: like Chrome, the tab you switched away from shows its own page again.
-        onChange(toDisplayUrl(pageUrl ?? ''))
+        const page = findPage(useAppStore.getState().browserPagesByWorkspace, pageId)
+        onChange(toDisplayUrl(page?.url ?? ''))
         requestBrowserFocus({ pageId: activation.pageId, target: activation.focusTarget })
       }
     },
-    [dismissSuggestions, onChange, onNavigate, pageUrl, targetFor]
+    [dismissSuggestions, onChange, onNavigate, pageId, targetFor]
   )
 
   // Why: a focused button whose tab has since closed or moved on no longer takes Enter.
