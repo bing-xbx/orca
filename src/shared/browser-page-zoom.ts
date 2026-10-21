@@ -1,5 +1,9 @@
 export type BrowserPageZoomDirection = 'in' | 'out' | 'reset'
 
+export function isBrowserPageZoomDirection(value: unknown): value is BrowserPageZoomDirection {
+  return value === 'in' || value === 'out' || value === 'reset'
+}
+
 export type BrowserPageZoomCommand = {
   browserPageId: string
   direction: BrowserPageZoomDirection
@@ -13,10 +17,14 @@ const BROWSER_PAGE_ZOOM_PERCENTS = [
 ] as const
 
 export const BROWSER_PAGE_ZOOM_LEVELS: readonly number[] = BROWSER_PAGE_ZOOM_PERCENTS.map(
-  (percent) => (percent === 100 ? 0 : Math.log(percent / 100) / Math.log(1.2))
+  (percent) => Math.log(percent / 100) / Math.log(1.2)
 )
 
-function nearestZoomLevelIndex(level: number): number {
+/** The nearest preset; anything that is not a finite level counts as 100%. */
+function nearestZoomLevelIndex(level: unknown): number {
+  if (typeof level !== 'number' || !Number.isFinite(level)) {
+    return BROWSER_PAGE_ZOOM_PERCENTS.indexOf(100)
+  }
   let nearest = 0
   for (let index = 1; index < BROWSER_PAGE_ZOOM_LEVELS.length; index++) {
     if (
@@ -31,14 +39,11 @@ function nearestZoomLevelIndex(level: number): number {
 
 /** Snaps any level, including ones saved before the presets, to the nearest preset. */
 export function normalizeBrowserPageZoomLevel(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return DEFAULT_BROWSER_PAGE_ZOOM_LEVEL
-  }
   return BROWSER_PAGE_ZOOM_LEVELS[nearestZoomLevelIndex(value)]
 }
 
 export function browserPageZoomLevelToPercent(level: number): number {
-  return BROWSER_PAGE_ZOOM_PERCENTS[nearestZoomLevelIndex(normalizeBrowserPageZoomLevel(level))]
+  return BROWSER_PAGE_ZOOM_PERCENTS[nearestZoomLevelIndex(level)]
 }
 
 export function nextBrowserPageZoomLevel(
@@ -49,7 +54,7 @@ export function nextBrowserPageZoomLevel(
   if (direction === 'reset') {
     return normalizeBrowserPageZoomLevel(resetLevel)
   }
-  const index = nearestZoomLevelIndex(normalizeBrowserPageZoomLevel(current))
+  const index = nearestZoomLevelIndex(current)
   const next = direction === 'in' ? index + 1 : index - 1
   return BROWSER_PAGE_ZOOM_LEVELS[Math.max(0, Math.min(BROWSER_PAGE_ZOOM_LEVELS.length - 1, next))]
 }

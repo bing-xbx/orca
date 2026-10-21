@@ -1,6 +1,7 @@
 import { ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { browserManager } from '../browser/browser-manager'
 import { browserSiteDisplayController } from '../browser/browser-site-display-controller'
+import { isBrowserPageZoomDirection } from '../../shared/browser-page-zoom'
 import { publishBrowserClientPageMetadata } from '../browser/browser-client-page-metadata-transport'
 import {
   BrowserClientPageMetadataParams,
@@ -50,10 +51,7 @@ export function registerBrowserGuestViewHandlers(): void {
     (event, args: { browserPageId: string; direction: unknown }): BrowserPageSiteDisplay | null => {
       const guestId = pageGuestId(event, args?.browserPageId)
       const { direction } = args
-      if (
-        guestId === null ||
-        (direction !== 'in' && direction !== 'out' && direction !== 'reset')
-      ) {
+      if (guestId === null || !isBrowserPageZoomDirection(direction)) {
         return null
       }
       return browserSiteDisplayController.zoomPage(guestId, direction)

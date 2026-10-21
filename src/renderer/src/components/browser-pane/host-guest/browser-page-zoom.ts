@@ -1,10 +1,6 @@
 import type { BrowserPageZoomCommand } from '../../../../../shared/browser-page-zoom'
 
-export {
-  browserPageZoomLevelToPercent,
-  type BrowserPageZoomCommand,
-  type BrowserPageZoomDirection
-} from '../../../../../shared/browser-page-zoom'
+export type { BrowserPageZoomCommand } from '../../../../../shared/browser-page-zoom'
 
 export const ORCA_BROWSER_PAGE_ZOOM_EVENT = 'orca:browser-page-zoom'
 

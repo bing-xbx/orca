@@ -101,10 +101,14 @@ export function BrowserToolbarMenu({
     // the result back; main answers invokes in order, so this read sees that zoom.
     return addBrowserPageZoomEventListener((command) => {
       if (command.browserPageId === browserPageId) {
-        void window.api.browser.getPageSiteDisplay({ browserPageId }).then(setSiteDisplay)
+        void window.api.browser.getPageSiteDisplay({ browserPageId }).then((display) => {
+          if (mountedRef.current) {
+            setSiteDisplay(display)
+          }
+        })
       }
     })
-  }, [browserPageId, menuOpen])
+  }, [browserPageId, menuOpen, mountedRef])
 
   useLayoutEffect(() => {
     // Why: step 3 falls back to the Import Cookies row inside this menu, so open

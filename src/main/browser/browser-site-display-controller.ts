@@ -12,6 +12,7 @@ import {
   type BrowserPageZoomDirection
 } from '../../shared/browser-page-zoom'
 import type { PersistedUIState } from '../../shared/persisted-ui-state-types'
+import { errorMessage } from '../../shared/error-message'
 
 type TrackedGuest = {
   guest: Electron.WebContents
@@ -34,7 +35,7 @@ const ZOOM_EPSILON = 1e-6
  */
 export class BrowserSiteDisplayController {
   private readonly guests = new Map<number, TrackedGuest>()
-  private getDefaultZoomLevel = (): number => DEFAULT_BROWSER_PAGE_ZOOM_LEVEL
+  private defaultZoomLevel = DEFAULT_BROWSER_PAGE_ZOOM_LEVEL
 
   /** Electron pushes Orca's UI zoom onto every webview, so a UI zoom change moves pages too. */
   followZoomSettings(ui: {
@@ -42,8 +43,7 @@ export class BrowserSiteDisplayController {
     onUIChanged: (listener: (ui: PersistedUIState) => void) => () => void
   }): void {
     let { uiZoomLevel, browserDefaultZoomLevel } = ui.getUI()
-    this.getDefaultZoomLevel = () =>
-      normalizeBrowserPageZoomLevel(ui.getUI().browserDefaultZoomLevel)
+    this.defaultZoomLevel = normalizeBrowserPageZoomLevel(browserDefaultZoomLevel)
     ui.onUIChanged((next) => {
       if (
         next.uiZoomLevel === uiZoomLevel &&
@@ -52,6 +52,7 @@ export class BrowserSiteDisplayController {
         return
       }
       ;({ uiZoomLevel, browserDefaultZoomLevel } = next)
+      this.defaultZoomLevel = normalizeBrowserPageZoomLevel(browserDefaultZoomLevel)
       this.reapplyZoom()
     })
   }
@@ -121,7 +122,7 @@ export class BrowserSiteDisplayController {
     const saved = site ? getBrowserSiteDisplay(tracked.profileId, site) : {}
     return {
       site,
-      zoomLevel: saved.zoomLevel ?? this.getDefaultZoomLevel(),
+      zoomLevel: saved.zoomLevel ?? this.defaultZoomLevel,
       siteHasZoom: saved.zoomLevel !== undefined,
       colorScheme: saved.colorScheme ?? null
     }
@@ -129,20 +130,18 @@ export class BrowserSiteDisplayController {
 
   zoomPage(guestId: number, direction: BrowserPageZoomDirection): BrowserPageSiteDisplay | null {
     const display = this.getPageDisplay(guestId)
-    const tracked = this.guests.get(guestId)
-    if (!display || !tracked || !display.site) {
+    const profileId = this.guests.get(guestId)?.profileId
+    if (!display?.site || !profileId) {
       return display
     }
-    const defaultLevel = this.getDefaultZoomLevel()
     // Why from the saved level: Electron pushes Orca's UI zoom onto every webview, so the live
     // level can be stale and stepping from it would save the wrong zoom.
-    const next = nextBrowserPageZoomLevel(display.zoomLevel, direction, defaultLevel)
-    updateBrowserSiteDisplay(tracked.profileId, display.site, {
-      zoomLevel: Math.abs(next - defaultLevel) < ZOOM_EPSILON ? undefined : next
-    })
-    this.forEachSiteGuest(tracked.profileId, display.site, (siteGuestId) =>
-      this.applyZoom(siteGuestId)
-    )
+    const next = nextBrowserPageZoomLevel(display.zoomLevel, direction, this.defaultZoomLevel)
+    const zoomLevel = next === this.defaultZoomLevel ? undefined : next
+    if (zoomLevel !== (display.siteHasZoom ? display.zoomLevel : undefined)) {
+      updateBrowserSiteDisplay(profileId, display.site, { zoomLevel })
+      this.forEachSiteGuest(profileId, display.site, (siteGuestId) => this.applyZoom(siteGuestId))
+    }
     return this.getPageDisplay(guestId)
   }
 
@@ -151,16 +150,12 @@ export class BrowserSiteDisplayController {
     colorScheme: BrowserSiteColorScheme | null
   ): BrowserPageSiteDisplay | null {
     const display = this.getPageDisplay(guestId)
-    const tracked = this.guests.get(guestId)
-    if (!display || !tracked || !display.site) {
+    const profileId = this.guests.get(guestId)?.profileId
+    if (!display?.site || !profileId || display.colorScheme === colorScheme) {
       return display
     }
-    updateBrowserSiteDisplay(tracked.profileId, display.site, {
-      colorScheme: colorScheme ?? undefined
-    })
-    // Why the scheme only: setEmulatedMedia replaces every emulated feature, so resending it on a
-    // zoom change would drop an agent's other media overrides for nothing.
-    this.forEachSiteGuest(tracked.profileId, display.site, (siteGuestId, url) =>
+    updateBrowserSiteDisplay(profileId, display.site, { colorScheme: colorScheme ?? undefined })
+    this.forEachSiteGuest(profileId, display.site, (siteGuestId, url) =>
       this.applyColorScheme(siteGuestId, url)
     )
     return this.getPageDisplay(guestId)
@@ -184,11 +179,7 @@ export class BrowserSiteDisplayController {
     if (!tracked || tracked.guest.isDestroyed()) {
       return
     }
-    const site = browserSiteDisplayKey(tracked.guest.getURL())
-    const level = normalizeBrowserPageZoomLevel(
-      (site ? getBrowserSiteDisplay(tracked.profileId, site).zoomLevel : undefined) ??
-        this.getDefaultZoomLevel()
-    )
+    const level = this.getPageDisplay(guestId)?.zoomLevel ?? this.defaultZoomLevel
     // Why compare first: Chromium keeps zoom per host, so a no-op write would still reset a
     // same-host tab that a different profile or the UI zoom push moved.
     if (Math.abs(tracked.guest.getZoomLevel() - level) > ZOOM_EPSILON) {
@@ -222,7 +213,7 @@ export class BrowserSiteDisplayController {
       .catch((error: unknown) => {
         console.warn('[browser-site-display] failed to set the page color scheme', {
           guestWebContentsId: guestId,
-          error: error instanceof Error ? error.message : String(error)
+          error: errorMessage(error)
         })
       })
   }
@@ -238,7 +229,7 @@ export class BrowserSiteDisplayController {
       // Why: attach fails while DevTools holds the page; the next navigation tries again.
       console.warn('[browser-site-display] could not attach to set the page color scheme', {
         guestWebContentsId: guest.id,
-        error: error instanceof Error ? error.message : String(error)
+        error: errorMessage(error)
       })
       return null
     }

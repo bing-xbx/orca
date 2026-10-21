@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { browserPageZoomLevelToPercent } from './browser-page-zoom'
+import { browserPageZoomLevelToPercent } from '../../../../../shared/browser-page-zoom'
 import { BROWSER_PAGE_ZOOM_FEEDBACK_MS } from '../describe-page/browser-annotation-geometry'
 
 export function useBrowserPageZoomFeedback(): {
