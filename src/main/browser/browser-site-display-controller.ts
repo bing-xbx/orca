@@ -57,12 +57,7 @@ export class BrowserSiteDisplayController {
     })
   }
 
-  /** `navigationUrl` is the page being loaded, which can be ahead of the committed URL. */
-  onGuestRegistered(
-    guest: Electron.WebContents,
-    profileId: string | null,
-    navigationUrl: string
-  ): void {
+  onGuestRegistered(guest: Electron.WebContents, profileId: string | null): void {
     const previous = this.guests.get(guest.id)
     previous?.stopWatchingDomReady()
     // Why dom-ready: once Orca's UI zoom has changed, Electron copies it onto the guest at some
@@ -75,7 +70,7 @@ export class BrowserSiteDisplayController {
       stopWatchingDomReady: () => guest.off('dom-ready', onDomReady),
       colorScheme: previous?.colorScheme ?? null
     })
-    this.applyColorScheme(guest.id, navigationUrl)
+    this.applyColorScheme(guest.id)
     this.applyZoom(guest.id)
   }
 
@@ -88,22 +83,12 @@ export class BrowserSiteDisplayController {
     this.guests.delete(guestId)
   }
 
-  /** Called before the new document exists, so its first paint already has the right scheme. */
-  onMainFrameNavigationStarted(guestId: number, url: string): void {
-    this.applyColorScheme(guestId, url)
-  }
-
   /**
-   * Shows the committed document as its site wants, after a commit or after a navigation that
-   * never committed (stopped, or turned into a download) left the previous document in place.
-   * Zoom is keyed by the committed host, so it can only be set here.
+   * Why at commit: the new document's scripts read prefers-color-scheme only after this, while the
+   * page being left keeps its own scheme until it is replaced. Zoom is keyed by the committed host.
    */
-  onMainFrameDocumentSettled(guestId: number): void {
-    const tracked = this.guests.get(guestId)
-    if (tracked) {
-      // Why the scheme again: a restored tab's first load starts before its guest registers.
-      this.applyColorScheme(guestId, tracked.guest.getURL())
-    }
+  onMainFrameNavigationCommitted(guestId: number): void {
+    this.applyColorScheme(guestId)
     this.applyZoom(guestId)
   }
 
@@ -155,8 +140,8 @@ export class BrowserSiteDisplayController {
       return display
     }
     updateBrowserSiteDisplay(profileId, display.site, { colorScheme: colorScheme ?? undefined })
-    this.forEachSiteGuest(profileId, display.site, (siteGuestId, url) =>
-      this.applyColorScheme(siteGuestId, url)
+    this.forEachSiteGuest(profileId, display.site, (siteGuestId) =>
+      this.applyColorScheme(siteGuestId)
     )
     return this.getPageDisplay(guestId)
   }
@@ -164,12 +149,14 @@ export class BrowserSiteDisplayController {
   private forEachSiteGuest(
     profileId: string,
     site: string,
-    apply: (guestId: number, url: string) => void
+    apply: (guestId: number) => void
   ): void {
     for (const [guestId, tracked] of this.guests) {
-      const url = tracked.guest.getURL()
-      if (tracked.profileId === profileId && browserSiteDisplayKey(url) === site) {
-        apply(guestId, url)
+      if (
+        tracked.profileId === profileId &&
+        browserSiteDisplayKey(tracked.guest.getURL()) === site
+      ) {
+        apply(guestId)
       }
     }
   }
@@ -187,15 +174,12 @@ export class BrowserSiteDisplayController {
     }
   }
 
-  private applyColorScheme(guestId: number, url: string): void {
+  private applyColorScheme(guestId: number): void {
     const tracked = this.guests.get(guestId)
     if (!tracked || tracked.guest.isDestroyed()) {
       return
     }
-    const site = browserSiteDisplayKey(url)
-    const colorScheme = site
-      ? getBrowserSiteDisplay(tracked.profileId, site).colorScheme
-      : undefined
+    const colorScheme = this.getPageDisplay(guestId)?.colorScheme ?? undefined
     if (!colorScheme && !tracked.colorScheme?.standing) {
       return
     }

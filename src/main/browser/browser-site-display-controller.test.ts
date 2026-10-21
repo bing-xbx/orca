@@ -54,9 +54,8 @@ function fakeGuest(url: string): FakeGuest {
 
 /** What the page shows after the navigation commits and its document loads. */
 function commit(controller: BrowserSiteDisplayController, guest: FakeGuest, url: string): void {
-  controller.onMainFrameNavigationStarted(guest.id, url)
   guest.url = url
-  controller.onMainFrameDocumentSettled(guest.id)
+  controller.onMainFrameNavigationCommitted(guest.id)
   guest.emit('dom-ready')
 }
 
@@ -96,10 +95,10 @@ describe('BrowserSiteDisplayController zoom', () => {
     const githubOtherPort = fakeGuest('https://github.com:8443/b')
     const githubWork = fakeGuest('https://github.com/c')
     const docs = fakeGuest('https://docs.example.com/')
-    controller.onGuestRegistered(github, null, github.url)
-    controller.onGuestRegistered(githubOtherPort, 'default', githubOtherPort.url)
-    controller.onGuestRegistered(githubWork, 'work', githubWork.url)
-    controller.onGuestRegistered(docs, null, docs.url)
+    controller.onGuestRegistered(github, null)
+    controller.onGuestRegistered(githubOtherPort, 'default')
+    controller.onGuestRegistered(githubWork, 'work')
+    controller.onGuestRegistered(docs, null)
 
     controller.zoomPage(github.id, 'in')
 
@@ -116,7 +115,7 @@ describe('BrowserSiteDisplayController zoom', () => {
     const ui = uiStore()
     controller.followZoomSettings(ui)
     const guest = fakeGuest('https://github.com/')
-    controller.onGuestRegistered(guest, null, guest.url)
+    controller.onGuestRegistered(guest, null)
     controller.zoomPage(guest.id, 'in')
     // Electron copies the embedder's zoom (here 120%) onto every webview, on change and after commits.
     const copyUIZoom = (): void => {
@@ -127,9 +126,8 @@ describe('BrowserSiteDisplayController zoom', () => {
     ui.update({ uiZoomLevel: 1 })
     expect(percent(guest)).toBe(110)
 
-    controller.onMainFrameNavigationStarted(guest.id, 'https://github.com/next')
     guest.url = 'https://github.com/next'
-    controller.onMainFrameDocumentSettled(guest.id)
+    controller.onMainFrameNavigationCommitted(guest.id)
     copyUIZoom()
     guest.emit('dom-ready')
     expect(percent(guest)).toBe(110)
@@ -141,10 +139,10 @@ describe('BrowserSiteDisplayController zoom', () => {
 })
 
 describe('BrowserSiteDisplayController color scheme', () => {
-  it('sets the site scheme as navigation starts and clears it once on leaving', () => {
+  it('sets the site scheme as each page commits and clears it once on leaving', () => {
     const controller = new BrowserSiteDisplayController()
     const guest = fakeGuest('https://github.com/')
-    controller.onGuestRegistered(guest, null, guest.url)
+    controller.onGuestRegistered(guest, null)
     controller.setColorScheme(guest.id, 'dark')
 
     // Why it matters: each send replaces every emulated feature, including an agent's own.
@@ -153,32 +151,19 @@ describe('BrowserSiteDisplayController color scheme', () => {
     commit(controller, guest, 'https://news.example.com/')
     commit(controller, guest, 'https://github.com/x')
 
-    expect(guest.mediaSent).toEqual(['dark', '', 'dark', 'dark'])
-  })
-
-  it('puts the scheme back when a navigation to another site never commits', () => {
-    const controller = new BrowserSiteDisplayController()
-    const guest = fakeGuest('https://github.com/')
-    controller.onGuestRegistered(guest, null, guest.url)
-    controller.setColorScheme(guest.id, 'dark')
-
-    // e.g. a link that turns into a download: the GitHub page stays on screen.
-    controller.onMainFrameNavigationStarted(guest.id, 'https://objects.githubusercontent.com/x.zip')
-    controller.onMainFrameDocumentSettled(guest.id)
-
     expect(guest.mediaSent).toEqual(['dark', '', 'dark'])
   })
 
   it('gives a restored tab its scheme when its first load started before it registered', () => {
     const controller = new BrowserSiteDisplayController()
     const first = fakeGuest('https://github.com/')
-    controller.onGuestRegistered(first, null, first.url)
+    controller.onGuestRegistered(first, null)
     controller.setColorScheme(first.id, 'light')
 
     const restored = fakeGuest('')
-    controller.onGuestRegistered(restored, null, '')
+    controller.onGuestRegistered(restored, null)
     restored.url = 'https://github.com/restored'
-    controller.onMainFrameDocumentSettled(restored.id)
+    controller.onMainFrameNavigationCommitted(restored.id)
 
     expect(restored.mediaSent).toEqual(['light'])
   })
@@ -186,7 +171,7 @@ describe('BrowserSiteDisplayController color scheme', () => {
   it('attaches again after DevTools detaches the debugger', () => {
     const controller = new BrowserSiteDisplayController()
     const guest = fakeGuest('https://github.com/')
-    controller.onGuestRegistered(guest, null, guest.url)
+    controller.onGuestRegistered(guest, null)
     controller.setColorScheme(guest.id, 'dark')
 
     guest.debugger.detach()
