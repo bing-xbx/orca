@@ -17,6 +17,7 @@ import {
   matchBrowserHistory,
   prepareBrowserHistoryEntries
 } from '@/lib/browser-history-match'
+import { displayableFaviconUrl } from '../describe-page/browser-favicon-url'
 import { formatBrowserPaletteUrl } from '@/lib/browser-palette-search'
 import { isClipboardTextByteLengthOverLimit } from '../../../../../shared/clipboard-text'
 import { translate } from '@/i18n/i18n'
@@ -33,6 +34,7 @@ export type BrowserAddressBarSuggestion = {
   lastVisitedAt: number
   visitCount: number
   isSearch: boolean
+  faviconUrl?: string | null
   /** Set on a previewed-document row; selecting it opens the document on a fresh grant. */
   docLocation?: BrowserPageDocLocation
   /** On row 0 when the bar completes the typed text inline to it: the full bar text. */
@@ -58,14 +60,7 @@ export function isBrowserAddressBarQueryTooLarge(
   return isClipboardTextByteLengthOverLimit(query, maxBytes)
 }
 
-export function buildBrowserAddressBarSuggestions({
-  browserUrlHistory,
-  workspaceDocHistory = [],
-  kagiSessionLink,
-  searchEngine = DEFAULT_SEARCH_ENGINE,
-  value,
-  inlineAllowed = false
-}: {
+type BrowserAddressBarSuggestionInput = {
   browserUrlHistory: readonly BrowserHistoryEntry[]
   workspaceDocHistory?: readonly WorkspaceDocHistoryEntry[]
   kagiSessionLink?: string | null
@@ -73,7 +68,42 @@ export function buildBrowserAddressBarSuggestions({
   value: string
   /** Set while the bar shows an inline completion, so the completed row is the one on top. */
   inlineAllowed?: boolean
-}): BrowserAddressBarSuggestion[] {
+}
+
+export function buildBrowserAddressBarSuggestions(
+  args: BrowserAddressBarSuggestionInput
+): BrowserAddressBarSuggestion[] {
+  return withSiteFavicons(buildSuggestionRows(args), args.browserUrlHistory)
+}
+
+// Why by host: a typed address or a host completion has no history entry of its own, and Orca
+// already treats an icon as the site's (the tab strip keeps it across same-site pages).
+function withSiteFavicons(
+  rows: BrowserAddressBarSuggestion[],
+  browserUrlHistory: readonly BrowserHistoryEntry[]
+): BrowserAddressBarSuggestion[] {
+  return rows.map((row) => {
+    if (row.isSearch || row.docLocation || displayableFaviconUrl(row.faviconUrl)) {
+      return row
+    }
+    const host = historyHost(row.url)
+    const faviconUrl = host
+      ? prepareBrowserHistoryEntries(browserUrlHistory).find(
+          ({ entry, lowerHost }) => lowerHost === host && displayableFaviconUrl(entry.faviconUrl)
+        )?.entry.faviconUrl
+      : null
+    return faviconUrl ? { ...row, faviconUrl } : row
+  })
+}
+
+function buildSuggestionRows({
+  browserUrlHistory,
+  workspaceDocHistory = [],
+  kagiSessionLink,
+  searchEngine = DEFAULT_SEARCH_ENGINE,
+  value,
+  inlineAllowed = false
+}: BrowserAddressBarSuggestionInput): BrowserAddressBarSuggestion[] {
   if (isBrowserAddressBarQueryTooLarge(value)) {
     return []
   }

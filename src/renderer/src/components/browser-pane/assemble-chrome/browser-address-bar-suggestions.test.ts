@@ -330,6 +330,41 @@ describe('browser address bar suggestions', () => {
   })
 })
 
+describe('suggestion favicons', () => {
+  it("gives page rows without an icon of their own the site's icon", () => {
+    const faviconUrl = 'https://www.youtube.com/s/favicon.ico'
+    const history = [
+      historyEntry({
+        url: 'https://www.youtube.com/watch?v=1',
+        normalizedUrl: 'https://www.youtube.com/watch?v=1',
+        title: 'Video',
+        faviconUrl
+      }),
+      historyEntry({
+        url: 'https://www.youtube.com/feed',
+        normalizedUrl: 'https://www.youtube.com/feed',
+        title: 'Feed',
+        faviconUrl: null
+      })
+    ]
+    const suggestions = buildBrowserAddressBarSuggestions({
+      value: 'you',
+      browserUrlHistory: history,
+      inlineAllowed: true
+    })
+    // Row 0 is the host completion `youtube.com`, which has no history entry and no `www.`.
+    expect(
+      Object.fromEntries(
+        suggestions.filter((row) => !row.isSearch).map((row) => [row.url, row.faviconUrl])
+      )
+    ).toEqual({
+      'https://youtube.com/': faviconUrl,
+      'https://www.youtube.com/watch?v=1': faviconUrl,
+      'https://www.youtube.com/feed': faviconUrl
+    })
+  })
+})
+
 describe('getBrowserAddressBarInlineCompletion', () => {
   it.each([
     ['git', 'https://github.com/stablyai/orca', 'github.com', 'https://github.com/'],

@@ -1,4 +1,5 @@
-import { Globe, Search } from 'lucide-react'
+import { FileText, Search } from 'lucide-react'
+import { BrowserFavicon } from '@/components/browser-favicon'
 import { Button } from '@/components/ui/button'
 import { Command, CommandGroup, CommandItem, CommandList } from '@/components/ui/command'
 import { translate } from '@/i18n/i18n'
@@ -45,8 +46,14 @@ export default function BrowserAddressBarSuggestionList({
             >
               {entry.isSearch ? (
                 <Search className="size-3.5 shrink-0 text-muted-foreground" />
+              ) : entry.docLocation ? (
+                <FileText className="size-3.5 shrink-0 text-muted-foreground" />
               ) : (
-                <Globe className="size-3.5 shrink-0 text-muted-foreground" />
+                <BrowserFavicon
+                  faviconUrl={entry.faviconUrl}
+                  className="size-3.5"
+                  fallbackClassName="text-muted-foreground"
+                />
               )}
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-sm">{entry.title}</span>
