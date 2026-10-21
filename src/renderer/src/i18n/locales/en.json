@@ -17069,7 +17069,6 @@
             "d6a1f5e4c3b2": "Imported {{value0}} cookies from {{value1}}.",
             "zoom": "Zoom",
             "zoomOut": "Zoom out",
-            "resetZoomTo": "Zoom {{value0}}%, reset to default",
             "zoomIn": "Zoom in",
             "resetZoom": "Reset zoom",
             "appearance": "Appearance",
