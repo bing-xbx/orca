@@ -250,11 +250,15 @@ export function normalizeInteractivePromptField(
   if (value.length <= maxLength) {
     return value
   }
+  const fitted = fitInteractivePrompt(value, (candidate) => candidate.length <= maxLength)
+  if (fitted !== null) {
+    return fitted
+  }
   // Why: labels alone over the cap keep the plain cut; readers treat unparseable JSON as capped.
-  const fitted =
-    fitInteractivePrompt(value, (candidate) => candidate.length <= maxLength) ??
-    truncatePreservingSurrogates(value, maxLength)
-  return fitted.length > 0 ? fitted : undefined
+  console.warn(
+    `[agent-status] interactivePrompt of ${value.length} chars cannot fit ${maxLength} with its option labels; no card will show`
+  )
+  return truncatePreservingSurrogates(value, maxLength)
 }
 
 export function normalizeOptionalField(value: unknown, maxLength: number): string | undefined {
