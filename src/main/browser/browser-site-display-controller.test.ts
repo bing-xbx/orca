@@ -147,6 +147,8 @@ describe('BrowserSiteDisplayController color scheme', () => {
     controller.onGuestRegistered(guest, null, guest.url)
     controller.setColorScheme(guest.id, 'dark')
 
+    // Why it matters: each send replaces every emulated feature, including an agent's own.
+    controller.zoomPage(guest.id, 'in')
     commit(controller, guest, 'https://docs.example.com/')
     commit(controller, guest, 'https://news.example.com/')
     commit(controller, guest, 'https://github.com/x')

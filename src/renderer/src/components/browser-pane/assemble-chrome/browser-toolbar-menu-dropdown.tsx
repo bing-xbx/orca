@@ -178,7 +178,7 @@ export function BrowserToolbarMenuDropdown({
             )}
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
-            <DropdownMenuSubContent>
+            <DropdownMenuSubContent data-browser-page-menu-id={browserPageId}>
               <BrowserCookieImportMachineNotice />
               {detectedBrowsers.map((browser) =>
                 browser.profiles.length > 1 ? (
@@ -191,7 +191,7 @@ export function BrowserToolbarMenuDropdown({
                       )}
                     </DropdownMenuSubTrigger>
                     <DropdownMenuPortal>
-                      <DropdownMenuSubContent>
+                      <DropdownMenuSubContent data-browser-page-menu-id={browserPageId}>
                         {browser.profiles.map((profile) => (
                           <DropdownMenuItem
                             key={profile.directory}
@@ -232,6 +232,7 @@ export function BrowserToolbarMenuDropdown({
 
         <BrowserToolbarZoomRow display={siteDisplay} onZoom={onZoomPage} />
         <BrowserToolbarAppearanceSub
+          browserPageId={browserPageId}
           display={siteDisplay}
           onSetColorScheme={onSetSiteColorScheme}
         />
@@ -244,7 +245,7 @@ export function BrowserToolbarMenuDropdown({
             )}
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
-            <DropdownMenuSubContent>
+            <DropdownMenuSubContent data-browser-page-menu-id={browserPageId}>
               {/* Why: Viewport is a "pick one of N" control, so use a radio group
                   for proper a11y semantics (role="menuitemradio", aria-checked).
                   The "Default" option represents a null preset (no override),

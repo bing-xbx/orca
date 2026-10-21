@@ -63,15 +63,16 @@ export function resolveZoomTarget(args: {
     )
   )
 
+  // Why first: as in Chrome, zooming from the address bar or toolbar zooms the page, and a
+  // floating browser can hold focus over Tasks or Settings.
+  if (focusedBrowserPageId(activeElement)) {
+    return 'browser'
+  }
   if (activeView !== 'terminal') {
     return 'ui'
   }
   if (activeTabType === 'simulator') {
     return 'simulator'
-  }
-  // Why: as in Chrome, zooming from the address bar or toolbar zooms the page.
-  if (focusedBrowserPageId(activeElement)) {
-    return 'browser'
   }
   // Why: with focus outside the pane, the chord belongs to Orca's own zoom.
   if (activeTabType === 'browser') {

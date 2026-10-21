@@ -101,6 +101,16 @@ describe('resolveZoomTarget', () => {
     ).toBe('ui')
   })
 
+  it('routes to the page whose floating browser holds focus over another view', () => {
+    expect(
+      resolveZoomTarget({
+        activeView: 'tasks',
+        activeTabType: 'terminal',
+        activeElement: makeTarget({ browserPageId: 'page-1' })
+      })
+    ).toBe('browser')
+  })
+
   it('routes to ui zoom for active browser tabs before stale DOM focus', () => {
     expect(
       resolveZoomTarget({

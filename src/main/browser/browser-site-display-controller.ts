@@ -140,7 +140,9 @@ export class BrowserSiteDisplayController {
     updateBrowserSiteDisplay(tracked.profileId, display.site, {
       zoomLevel: Math.abs(next - defaultLevel) < ZOOM_EPSILON ? undefined : next
     })
-    this.applyToSite(tracked.profileId, display.site)
+    this.forEachSiteGuest(tracked.profileId, display.site, (siteGuestId) =>
+      this.applyZoom(siteGuestId)
+    )
     return this.getPageDisplay(guestId)
   }
 
@@ -156,16 +158,23 @@ export class BrowserSiteDisplayController {
     updateBrowserSiteDisplay(tracked.profileId, display.site, {
       colorScheme: colorScheme ?? undefined
     })
-    this.applyToSite(tracked.profileId, display.site)
+    // Why the scheme only: setEmulatedMedia replaces every emulated feature, so resending it on a
+    // zoom change would drop an agent's other media overrides for nothing.
+    this.forEachSiteGuest(tracked.profileId, display.site, (siteGuestId, url) =>
+      this.applyColorScheme(siteGuestId, url)
+    )
     return this.getPageDisplay(guestId)
   }
 
-  private applyToSite(profileId: string, site: string): void {
+  private forEachSiteGuest(
+    profileId: string,
+    site: string,
+    apply: (guestId: number, url: string) => void
+  ): void {
     for (const [guestId, tracked] of this.guests) {
       const url = tracked.guest.getURL()
       if (tracked.profileId === profileId && browserSiteDisplayKey(url) === site) {
-        this.applyColorScheme(guestId, url)
-        this.applyZoom(guestId)
+        apply(guestId, url)
       }
     }
   }

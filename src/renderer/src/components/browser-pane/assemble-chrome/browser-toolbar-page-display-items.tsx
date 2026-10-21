@@ -118,9 +118,11 @@ export function BrowserToolbarZoomRow({
 const MATCH_ORCA_VALUE = 'orca'
 
 export function BrowserToolbarAppearanceSub({
+  browserPageId,
   display,
   onSetColorScheme
 }: {
+  browserPageId: string
   display: BrowserPageSiteDisplay | null
   onSetColorScheme: (colorScheme: BrowserSiteColorScheme | null) => void
 }): React.JSX.Element {
@@ -131,7 +133,7 @@ export function BrowserToolbarAppearanceSub({
         {translate('auto.components.browser.pane.BrowserToolbarMenu.appearance', 'Appearance')}
       </DropdownMenuSubTrigger>
       <DropdownMenuPortal>
-        <DropdownMenuSubContent>
+        <DropdownMenuSubContent data-browser-page-menu-id={browserPageId}>
           <DropdownMenuRadioGroup
             value={display?.colorScheme ?? MATCH_ORCA_VALUE}
             onValueChange={(value) =>
