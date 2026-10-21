@@ -327,6 +327,35 @@ describe('browser address bar suggestions', () => {
         'https://duckduckgo.com/?q=git'
       ])
     })
+
+    it('keeps the completion the bar shows on top when history re-ranks', () => {
+      const suggestions = buildBrowserAddressBarSuggestions({
+        value: 'git',
+        inlineAllowed: true,
+        shownInlineText: 'github.com',
+        browserUrlHistory: [
+          historyEntry({
+            url: 'https://gitlab.com/',
+            normalizedUrl: 'https://gitlab.com',
+            title: 'GitLab',
+            lastVisitedAt: now,
+            visitCount: 9
+          }),
+          historyEntry({
+            url: 'https://github.com/',
+            normalizedUrl: 'https://github.com',
+            title: 'GitHub',
+            lastVisitedAt: now,
+            visitCount: 1
+          })
+        ]
+      })
+
+      expect(suggestions[0]).toMatchObject({
+        url: 'https://github.com/',
+        inlineText: 'github.com'
+      })
+    })
   })
 })
 
@@ -392,6 +421,8 @@ describe('getBrowserAddressBarInlineCompletion', () => {
     ['orca', 'https://github.com/stablyai/orca'],
     ['git hub', 'https://github.com/'],
     ['fi', 'file:///Users/me/report.html'],
+    // A UNC path's host is a file server, not a site.
+    ['fil', 'file://files.example.com/share/report.html'],
     // Paths are case-sensitive, so /D must not complete to (and then open) /docs.
     ['example.com/D', 'https://example.com/docs'],
     // Submit would search for a bare single-label word, so it must not look like an address.

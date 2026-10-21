@@ -68,6 +68,8 @@ type BrowserAddressBarSuggestionInput = {
   value: string
   /** Set while the bar shows an inline completion, so the completed row is the one on top. */
   inlineAllowed?: boolean
+  /** The bar's completed text: row 0 stays that page even if history re-ranks meanwhile. */
+  shownInlineText?: string | null
 }
 
 export function buildBrowserAddressBarSuggestions(
@@ -102,7 +104,8 @@ function buildSuggestionRows({
   kagiSessionLink,
   searchEngine = DEFAULT_SEARCH_ENGINE,
   value,
-  inlineAllowed = false
+  inlineAllowed = false,
+  shownInlineText = null
 }: BrowserAddressBarSuggestionInput): BrowserAddressBarSuggestion[] {
   if (isBrowserAddressBarQueryTooLarge(value)) {
     return []
@@ -182,13 +185,12 @@ function buildSuggestionRows({
 
   // Why: like Chrome, row 0 is what Enter does. A visited page that starts with the typed text
   // takes it (the bar completes inline to it); otherwise what you typed does.
-  let completion: { text: string; url: string } | null = null
-  for (const row of inlineAllowed ? historySuggestions : []) {
-    completion = row.docLocation ? null : getBrowserAddressBarInlineCompletion(value, row.url)
-    if (completion) {
-      break
-    }
-  }
+  const completions = (inlineAllowed ? historySuggestions : []).flatMap((row) => {
+    const completion = row.docLocation ? null : getBrowserAddressBarInlineCompletion(value, row.url)
+    return completion ? [completion] : []
+  })
+  const completion =
+    completions.find(({ text }) => text === shownInlineText) ?? completions[0] ?? null
   if (completion) {
     const { text, url } = completion
     const visited = historySuggestions.find((row) => row.url === url)
@@ -241,7 +243,8 @@ export function getBrowserAddressBarInlineCompletion(
   const schemeLength = /^[a-z][a-z\d+.-]*:\/\//i.exec(typed)?.[0].length ?? 0
   const pathStart = typed.indexOf('/', schemeLength)
   const withinHost = pathStart === -1
-  if (withinHost && parsed.host === '') {
+  // Why web only: a UNC file URL has a host too, but completing it would send the bar to a site.
+  if (withinHost && parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     return null
   }
   const origin = `${parsed.protocol}//${parsed.host}`

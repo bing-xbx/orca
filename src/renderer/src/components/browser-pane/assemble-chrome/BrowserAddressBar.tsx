@@ -91,14 +91,15 @@ export default function BrowserAddressBar({
     (browserDefaultSearchEngine as SearchEngine | null) ?? DEFAULT_SEARCH_ENGINE
 
   const buildSuggestions = useCallback(
-    (query: string, inlineAllowed: boolean) =>
+    (query: string, inlineAllowed: boolean, shownInlineText?: string | null) =>
       buildBrowserAddressBarSuggestions({
         browserUrlHistory,
         workspaceDocHistory,
         kagiSessionLink: browserKagiSessionLink,
         searchEngine,
         value: query,
-        inlineAllowed
+        inlineAllowed,
+        shownInlineText
       }),
     [browserUrlHistory, workspaceDocHistory, searchEngine, browserKagiSessionLink]
   )
@@ -114,7 +115,7 @@ export default function BrowserAddressBar({
     live: { value, open, inlineShown: inlineText !== null && value === inlineText }
   })
   const suggestions = useMemo(
-    () => buildSuggestions(autocompleteQuery, inlineText !== null),
+    () => buildSuggestions(autocompleteQuery, inlineText !== null, inlineText),
     [buildSuggestions, autocompleteQuery, inlineText]
   )
 
