@@ -58,9 +58,9 @@ vi.mock('../ui/tooltip', () => ({
   TooltipContent: () => null
 }))
 
-vi.mock('./PluginInstallDialog', () => ({ PluginInstallDialog: () => null }))
+vi.mock('../plugins/dialogs/PluginInstallDialog', () => ({ PluginInstallDialog: () => null }))
 // Why mock the consent: review now happens on the plugin's page, where this section sits.
-vi.mock('./PluginInstallConsent', () => ({
+vi.mock('../plugins/review/PluginInstallConsent', () => ({
   PluginInstallConsent: ({ onConfirm }: { onConfirm: () => void }) => {
     const [dirty, setDirty] = useState(false)
     return (
@@ -72,7 +72,7 @@ vi.mock('./PluginInstallConsent', () => ({
     )
   }
 }))
-vi.mock('./PluginRemoveDialog', () => ({
+vi.mock('../plugins/dialogs/PluginRemoveDialog', () => ({
   PluginRemoveDialog: ({
     plugin,
     onConfirm
@@ -82,7 +82,7 @@ vi.mock('./PluginRemoveDialog', () => ({
   }) =>
     plugin ? <button onClick={() => onConfirm(plugin.pluginKey)}>Confirm remove</button> : null
 }))
-vi.mock('./PluginRollbackDialog', () => ({
+vi.mock('../plugins/dialogs/PluginRollbackDialog', () => ({
   PluginRollbackDialog: ({
     plugin,
     onConfirm
