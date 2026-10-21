@@ -5,6 +5,10 @@ import type {
   InteractiveQuestionParser
 } from './native-chat-ask-types'
 import { isInterruptedStatusMessage, type NativeChatMessage } from './native-chat-types'
+import {
+  CODEX_ASYNC_QUESTION_TOOL,
+  parseCodexAsyncQuestionsInput
+} from './codex-async-question-input'
 
 export type { AskOption, AskPrompt, AskQuestion, InteractiveQuestionParser }
 
@@ -82,25 +86,6 @@ for (const name of ['AskUserQuestion', 'ask_user_question', 'askUserQuestion']) 
   QUESTION_TOOL_PARSERS.set(name, parseCanonicalQuestionsInput)
 }
 
-/** Codex's non-blocking question: `{questions:[{title, options?: string[]}]}`. It
- *  returns `{"accepted":true}` at once and reads the answer from a later user message. */
-export const CODEX_ASYNC_QUESTION_TOOL = 'request_user_input_async'
-
-function parseCodexAsyncQuestionsInput(input: unknown): AskPrompt | null {
-  if (!input || typeof input !== 'object' || !('questions' in input)) {
-    return null
-  }
-  const rawQuestions = Array.isArray(input.questions) ? input.questions : []
-  const questions: AskQuestion[] = []
-  for (const raw of rawQuestions) {
-    if (raw && typeof raw === 'object' && 'title' in raw && typeof raw.title === 'string') {
-      const options = parseOptions('options' in raw ? raw.options : undefined)
-      questions.push({ question: raw.title, multiSelect: false, options })
-    }
-  }
-  return questions.length > 0 ? { questions, replyAsMessage: true } : null
-}
-
 QUESTION_TOOL_PARSERS.set(CODEX_ASYNC_QUESTION_TOOL, parseCodexAsyncQuestionsInput)
 
 function parseToolInput(toolName: string | undefined, input: unknown): AskPrompt | null {
@@ -139,11 +124,41 @@ export function parseAskFromToolInput(
  *  canonical-shape fallback as live status, so a question tool that rendered
  *  live cannot vanish from pending state after a reconnect/replay. */
 export function extractPendingAsk(messages: readonly NativeChatMessage[]): AskPrompt | null {
+  const scan = scanPendingAsks(messages)
+  return scan.blocking ?? scan.replyAsMessage
+}
+
+/** A structured chat's pending question from its messages: blocking ones arrive as journal
+ *  prompts, so only those answered by an ordinary message are left to read here. */
+export function extractPendingMessageReplyAsk(
+  messages: readonly NativeChatMessage[]
+): AskPrompt | null {
+  return scanPendingAsks(messages).replyAsMessage
+}
+
+/** A user row the agent received; a queued, unsent or withdrawn send answers nothing yet. */
+function reachedAgent(message: NativeChatMessage): boolean {
+  return (
+    message.queued !== true &&
+    message.unsent !== true &&
+    message.stoppedBeforeStart !== true &&
+    message.awaitsRetry !== true &&
+    message.sentWhileStopping !== true
+  )
+}
+
+function scanPendingAsks(messages: readonly NativeChatMessage[]): {
+  blocking: AskPrompt | null
+  replyAsMessage: AskPrompt | null
+} {
   let pending: AskPrompt | null = null
   // The FIFO is two counters, not a queue: a result only needs to know how far the
   // call that produced `pending` sits from the head, so nothing is retained per call.
   let outstanding = 0
   let pendingDepth = -1
+  // Each async question stays open past its immediate result until the agent receives a message.
+  let asyncQuestions: AskQuestion[] = []
+  const asyncCallIds = new Set<string>()
   for (const message of messages) {
     // A new user turn (or an interrupt row) ends the turn that owns whatever
     // calls are still in flight: their results never arrive, and `tool_use_id`
@@ -151,20 +166,31 @@ export function extractPendingAsk(messages: readonly NativeChatMessage[]): AskPr
     // Without this reset one orphan shifts the result FIFO for the rest of the
     // transcript and strands an answered ask as a permanent card over the
     // composer (#11761). Claude's tool-result turns decode as role 'tool'.
-    if (message.role === 'user' || isInterruptedStatusMessage(message)) {
+    const interrupted = isInterruptedStatusMessage(message)
+    if (message.role === 'user' || interrupted) {
       outstanding = 0
       pendingDepth = -1
       pending = null
+      if (interrupted || reachedAgent(message)) {
+        asyncQuestions = []
+        asyncCallIds.clear()
+      }
     }
     for (const block of message.blocks) {
       if (block.type === 'tool-call') {
         const parsed = QUESTION_TOOL_PARSERS.has(block.name)
           ? parseAskFromToolInput(block.name, block.input)
           : parseToolInput(block.name, block.input)
-        if (parsed) {
+        if (parsed?.replyAsMessage) {
+          if (block.callId === undefined || !asyncCallIds.has(block.callId)) {
+            asyncQuestions = [...asyncQuestions, ...parsed.questions]
+          }
+          if (block.callId !== undefined) {
+            asyncCallIds.add(block.callId)
+          }
+        } else if (parsed) {
           pending = parsed
-          // Its immediate result only confirms display, so only the user's next message ends it.
-          pendingDepth = parsed.replyAsMessage ? -1 : outstanding
+          pendingDepth = outstanding
         }
         outstanding += 1
       } else if (block.type === 'tool-result' && outstanding > 0) {
@@ -178,16 +204,11 @@ export function extractPendingAsk(messages: readonly NativeChatMessage[]): AskPr
       }
     }
   }
-  return pending
-}
-
-/** A structured chat's pending question from its messages: blocking ones arrive as journal
- *  prompts, so only one answered by an ordinary message is left to read here. */
-export function extractPendingMessageReplyAsk(
-  messages: readonly NativeChatMessage[]
-): AskPrompt | null {
-  const prompt = extractPendingAsk(messages)
-  return prompt?.replyAsMessage ? prompt : null
+  return {
+    blocking: pending,
+    replyAsMessage:
+      asyncQuestions.length > 0 ? { questions: asyncQuestions, replyAsMessage: true } : null
+  }
 }
 
 /** Prefers live status and consults transcript history only after its read settles. */
