@@ -103,7 +103,7 @@ export default function BrowserAddressBar({
       }),
     [browserUrlHistory, workspaceDocHistory, searchEngine, browserKagiSessionLink]
   )
-  const { inlineText, completeTyping, clearInline, acceptOnCaretMove } =
+  const { inlineText, completeTyping, clearInline, reselectInline, acceptOnCaretMove } =
     useBrowserAddressBarInlineCompletion({ inputRef, value, buildSuggestions, prePreviewValueRef })
   useBrowserAddressBarEditHandoff({
     editSession,
@@ -115,7 +115,7 @@ export default function BrowserAddressBar({
     live: { value, open, inlineShown: inlineText !== null && value === inlineText }
   })
   const suggestions = useMemo(
-    () => buildSuggestions(autocompleteQuery, inlineText !== null, inlineText),
+    () => buildSuggestions(autocompleteQuery, false, inlineText),
     [buildSuggestions, autocompleteQuery, inlineText]
   )
 
@@ -151,9 +151,17 @@ export default function BrowserAddressBar({
         onChange(autocompleteQuery)
         return
       }
+      if (suggestion.inlineText !== undefined) {
+        // Why: like Chrome, the completion comes back as typed text plus a selected tail, so
+        // Escape still restores what was typed.
+        setSelectedValueOverride(suggestion.url)
+        reselectInline(autocompleteQuery)
+        onChange(suggestion.inlineText)
+        return
+      }
       previewSuggestion(suggestion.url)
     },
-    [autocompleteQuery, clearInline, onChange, previewSuggestion, suggestions]
+    [autocompleteQuery, clearInline, onChange, previewSuggestion, reselectInline, suggestions]
   )
 
   const restoreTypedQuery = useCallback((): void => {

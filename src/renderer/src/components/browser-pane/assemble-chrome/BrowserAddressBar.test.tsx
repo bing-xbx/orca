@@ -262,6 +262,34 @@ describe('BrowserAddressBar autocomplete preview', () => {
     )
   })
 
+  it('shows the completion again, tail selected, when arrowing back to its row', async () => {
+    await act(async () => {
+      root.render(<AddressBarHarness initialValue="" onNavigate={vi.fn()} onSubmit={vi.fn()} />)
+    })
+    const input = container.querySelector<HTMLInputElement>('input[data-orca-browser-address-bar]')
+    if (!input) {
+      throw new Error('address bar input missing')
+    }
+    await act(async () => {
+      input.focus()
+    })
+    const typed = 'http://localhost:3000/rev'
+    await act(async () => typeInto(input, typed, 'insertText'))
+    for (const key of ['ArrowDown', 'ArrowUp']) {
+      await act(async () => {
+        input.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
+        input.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }))
+      })
+    }
+    expect(input.value).toBe('http://localhost:3000/review-one')
+    expect([input.selectionStart, input.selectionEnd]).toEqual([typed.length, input.value.length])
+
+    await act(async () => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    })
+    expect(container.querySelector('[data-current-address-value="true"]')?.textContent).toBe(typed)
+  })
+
   it('switches to the tab already showing a suggestion when Tab then Enter picks its button', async () => {
     mocks.openPageUrl = 'http://localhost:3000/review-one'
     const onNavigate = vi.fn()

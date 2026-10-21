@@ -66,9 +66,9 @@ type BrowserAddressBarSuggestionInput = {
   kagiSessionLink?: string | null
   searchEngine?: SearchEngine
   value: string
-  /** Set while the bar shows an inline completion, so the completed row is the one on top. */
+  /** Set on a keystroke that may complete inline, so the completed row is the one on top. */
   inlineAllowed?: boolean
-  /** The bar's completed text: row 0 stays that page even if history re-ranks meanwhile. */
+  /** The bar text while it shows a completion: row 0 stays that page whatever history does. */
   shownInlineText?: string | null
 }
 
@@ -185,12 +185,14 @@ function buildSuggestionRows({
 
   // Why: like Chrome, row 0 is what Enter does. A visited page that starts with the typed text
   // takes it (the bar completes inline to it); otherwise what you typed does.
-  const completions = (inlineAllowed ? historySuggestions : []).flatMap((row) => {
-    const completion = row.docLocation ? null : getBrowserAddressBarInlineCompletion(value, row.url)
-    return completion ? [completion] : []
-  })
+  // Enter submits the bar text, so the shown completion's target is that text's own URL.
+  const shownUrl = shownInlineText ? normalizeBrowserNavigationUrl(shownInlineText) : null
   const completion =
-    completions.find(({ text }) => text === shownInlineText) ?? completions[0] ?? null
+    shownInlineText && shownUrl
+      ? { text: shownInlineText, url: shownUrl }
+      : inlineAllowed
+        ? findInlineCompletion(value, historySuggestions)
+        : null
   if (completion) {
     const { text, url } = completion
     const visited = historySuggestions.find((row) => row.url === url)
@@ -220,6 +222,19 @@ function buildSuggestionRows({
     0,
     MAX_BROWSER_ADDRESS_BAR_SUGGESTIONS
   )
+}
+
+function findInlineCompletion(
+  typed: string,
+  rows: readonly BrowserAddressBarSuggestion[]
+): { text: string; url: string } | null {
+  for (const row of rows) {
+    const completion = row.docLocation ? null : getBrowserAddressBarInlineCompletion(typed, row.url)
+    if (completion) {
+      return completion
+    }
+  }
+  return null
 }
 
 /**

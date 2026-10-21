@@ -328,10 +328,10 @@ describe('browser address bar suggestions', () => {
       ])
     })
 
-    it('keeps the completion the bar shows on top when history re-ranks', () => {
+    // Background tabs re-rank or evict history while the bar shows `github.com`.
+    it('keeps the completion the bar shows on top whatever history does', () => {
       const suggestions = buildBrowserAddressBarSuggestions({
         value: 'git',
-        inlineAllowed: true,
         shownInlineText: 'github.com',
         browserUrlHistory: [
           historyEntry({
@@ -340,13 +340,6 @@ describe('browser address bar suggestions', () => {
             title: 'GitLab',
             lastVisitedAt: now,
             visitCount: 9
-          }),
-          historyEntry({
-            url: 'https://github.com/',
-            normalizedUrl: 'https://github.com',
-            title: 'GitHub',
-            lastVisitedAt: now,
-            visitCount: 1
           })
         ]
       })

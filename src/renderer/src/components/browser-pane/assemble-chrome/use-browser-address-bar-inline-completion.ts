@@ -31,6 +31,8 @@ export function useBrowserAddressBarInlineCompletion({
   /** The bar text for this edit when it completes inline; null keeps what was typed. */
   completeTyping: (event: ChangeEvent<HTMLInputElement>, typed: string) => string | null
   clearInline: () => void
+  /** Arrowing back to the completion's row shows it again with the completed part selected. */
+  reselectInline: (typed: string) => void
   /** Moving the caret off the completion (ArrowRight, End, a click) accepts it as typed text. */
   acceptOnCaretMove: (event: SyntheticEvent<HTMLInputElement>) => void
 } {
@@ -67,6 +69,17 @@ export function useBrowserAddressBarInlineCompletion({
 
   const clearInline = useCallback(() => setInline(null), [])
 
+  const reselectInline = useCallback(
+    (typed: string): void => {
+      if (inlineText === null) {
+        return
+      }
+      pendingSelectionRef.current = { start: typed.length, end: inlineText.length }
+      setInline({ text: inlineText })
+    },
+    [inlineText]
+  )
+
   const acceptOnCaretMove = useCallback(
     (event: SyntheticEvent<HTMLInputElement>): void => {
       const input = event.currentTarget
@@ -86,7 +99,7 @@ export function useBrowserAddressBarInlineCompletion({
     [inlineText, prePreviewValueRef]
   )
 
-  return { inlineText, completeTyping, clearInline, acceptOnCaretMove }
+  return { inlineText, completeTyping, clearInline, reselectInline, acceptOnCaretMove }
 }
 
 // Why typing only: like Chrome, a paste, an IME composition or a deletion never completes,
