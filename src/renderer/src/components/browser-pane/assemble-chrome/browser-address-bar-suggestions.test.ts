@@ -300,7 +300,7 @@ describe('browser address bar suggestions', () => {
     it('puts the completed host first and the typed search last while the bar completes inline', () => {
       const suggestions = buildBrowserAddressBarSuggestions({
         value: 'git',
-        inlineAllowed: true,
+        inline: true,
         searchEngine: 'duckduckgo',
         browserUrlHistory: [
           historyEntry({
@@ -332,7 +332,7 @@ describe('browser address bar suggestions', () => {
     it('keeps the completion the bar shows on top whatever history does', () => {
       const suggestions = buildBrowserAddressBarSuggestions({
         value: 'git',
-        shownInlineText: 'github.com',
+        inline: 'github.com',
         browserUrlHistory: [
           historyEntry({
             url: 'https://gitlab.com/',
@@ -372,7 +372,7 @@ describe('suggestion favicons', () => {
     const suggestions = buildBrowserAddressBarSuggestions({
       value: 'you',
       browserUrlHistory: history,
-      inlineAllowed: true
+      inline: true
     })
     // Row 0 is the host completion `youtube.com`, which has no history entry and no `www.`.
     expect(

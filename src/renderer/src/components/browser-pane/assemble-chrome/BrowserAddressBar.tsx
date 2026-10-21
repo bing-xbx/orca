@@ -91,19 +91,18 @@ export default function BrowserAddressBar({
     (browserDefaultSearchEngine as SearchEngine | null) ?? DEFAULT_SEARCH_ENGINE
 
   const buildSuggestions = useCallback(
-    (query: string, inlineAllowed: boolean, shownInlineText?: string | null) =>
+    (query: string, inline: true | string | null) =>
       buildBrowserAddressBarSuggestions({
         browserUrlHistory,
         workspaceDocHistory,
         kagiSessionLink: browserKagiSessionLink,
         searchEngine,
         value: query,
-        inlineAllowed,
-        shownInlineText
+        inline
       }),
     [browserUrlHistory, workspaceDocHistory, searchEngine, browserKagiSessionLink]
   )
-  const { inlineText, completeTyping, clearInline, reselectInline, acceptOnCaretMove } =
+  const { inlineText, completeTyping, clearInline, showInline, acceptOnCaretMove } =
     useBrowserAddressBarInlineCompletion({ inputRef, value, buildSuggestions, prePreviewValueRef })
   useBrowserAddressBarEditHandoff({
     editSession,
@@ -115,7 +114,7 @@ export default function BrowserAddressBar({
     live: { value, open, inlineShown: inlineText !== null && value === inlineText }
   })
   const suggestions = useMemo(
-    () => buildSuggestions(autocompleteQuery, false, inlineText),
+    () => buildSuggestions(autocompleteQuery, inlineText),
     [buildSuggestions, autocompleteQuery, inlineText]
   )
 
@@ -155,13 +154,13 @@ export default function BrowserAddressBar({
         // Why: like Chrome, the completion comes back as typed text plus a selected tail, so
         // Escape still restores what was typed.
         setSelectedValueOverride(suggestion.url)
-        reselectInline(autocompleteQuery)
+        showInline(autocompleteQuery, suggestion.inlineText)
         onChange(suggestion.inlineText)
         return
       }
       previewSuggestion(suggestion.url)
     },
-    [autocompleteQuery, clearInline, onChange, previewSuggestion, reselectInline, suggestions]
+    [autocompleteQuery, clearInline, onChange, previewSuggestion, showInline, suggestions]
   )
 
   const restoreTypedQuery = useCallback((): void => {

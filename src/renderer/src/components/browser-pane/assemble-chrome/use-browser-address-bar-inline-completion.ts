@@ -22,7 +22,7 @@ export function useBrowserAddressBarInlineCompletion({
 }: {
   inputRef: RefObject<HTMLInputElement | null>
   value: string
-  buildSuggestions: (query: string, inlineAllowed: boolean) => BrowserAddressBarSuggestion[]
+  buildSuggestions: (query: string, inline: true | string | null) => BrowserAddressBarSuggestion[]
   /** Holds the typed text while a completion shows; cleared once the completion is accepted. */
   prePreviewValueRef: MutableRefObject<string | null>
 }): {
@@ -31,8 +31,8 @@ export function useBrowserAddressBarInlineCompletion({
   /** The bar text for this edit when it completes inline; null keeps what was typed. */
   completeTyping: (event: ChangeEvent<HTMLInputElement>, typed: string) => string | null
   clearInline: () => void
-  /** Arrowing back to the completion's row shows it again with the completed part selected. */
-  reselectInline: (typed: string) => void
+  /** Shows `text` with the part past `typed` selected, as arrowing back to its row does. */
+  showInline: (typed: string, text: string) => void
   /** Moving the caret off the completion (ArrowRight, End, a click) accepts it as typed text. */
   acceptOnCaretMove: (event: SyntheticEvent<HTMLInputElement>) => void
 } {
@@ -52,33 +52,28 @@ export function useBrowserAddressBarInlineCompletion({
     input.setSelectionRange(range.start, range.end)
   }, [inline, inputRef, value])
 
+  const showInline = useCallback((typed: string, text: string): void => {
+    pendingSelectionRef.current = { start: typed.length, end: text.length }
+    setInline({ text })
+  }, [])
+
   const completeTyping = useCallback(
     (event: ChangeEvent<HTMLInputElement>, typed: string): string | null => {
       const text = isTypingAtEnd(event, typed)
         ? (buildSuggestions(typed, true)[0]?.inlineText ?? null)
         : null
       const completed = text !== null && text.length > typed.length ? text : null
-      setInline(completed === null ? null : { text: completed })
-      if (completed !== null) {
-        pendingSelectionRef.current = { start: typed.length, end: completed.length }
+      if (completed === null) {
+        setInline(null)
+      } else {
+        showInline(typed, completed)
       }
       return completed
     },
-    [buildSuggestions]
+    [buildSuggestions, showInline]
   )
 
   const clearInline = useCallback(() => setInline(null), [])
-
-  const reselectInline = useCallback(
-    (typed: string): void => {
-      if (inlineText === null) {
-        return
-      }
-      pendingSelectionRef.current = { start: typed.length, end: inlineText.length }
-      setInline({ text: inlineText })
-    },
-    [inlineText]
-  )
 
   const acceptOnCaretMove = useCallback(
     (event: SyntheticEvent<HTMLInputElement>): void => {
@@ -99,7 +94,7 @@ export function useBrowserAddressBarInlineCompletion({
     [inlineText, prePreviewValueRef]
   )
 
-  return { inlineText, completeTyping, clearInline, reselectInline, acceptOnCaretMove }
+  return { inlineText, completeTyping, clearInline, showInline, acceptOnCaretMove }
 }
 
 // Why typing only: like Chrome, a paste, an IME composition or a deletion never completes,

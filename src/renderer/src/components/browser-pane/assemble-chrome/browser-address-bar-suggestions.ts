@@ -66,10 +66,11 @@ type BrowserAddressBarSuggestionInput = {
   kagiSessionLink?: string | null
   searchEngine?: SearchEngine
   value: string
-  /** Set on a keystroke that may complete inline, so the completed row is the one on top. */
-  inlineAllowed?: boolean
-  /** The bar text while it shows a completion: row 0 stays that page whatever history does. */
-  shownInlineText?: string | null
+  /**
+   * `true` on a keystroke that may complete inline; the bar text while it shows a completion, so
+   * row 0 stays that page whatever history does meanwhile.
+   */
+  inline?: true | string | null
 }
 
 export function buildBrowserAddressBarSuggestions(
@@ -104,8 +105,7 @@ function buildSuggestionRows({
   kagiSessionLink,
   searchEngine = DEFAULT_SEARCH_ENGINE,
   value,
-  inlineAllowed = false,
-  shownInlineText = null
+  inline = null
 }: BrowserAddressBarSuggestionInput): BrowserAddressBarSuggestion[] {
   if (isBrowserAddressBarQueryTooLarge(value)) {
     return []
@@ -185,14 +185,8 @@ function buildSuggestionRows({
 
   // Why: like Chrome, row 0 is what Enter does. A visited page that starts with the typed text
   // takes it (the bar completes inline to it); otherwise what you typed does.
-  // Enter submits the bar text, so the shown completion's target is that text's own URL.
-  const shownUrl = shownInlineText ? normalizeBrowserNavigationUrl(shownInlineText) : null
   const completion =
-    shownInlineText && shownUrl
-      ? { text: shownInlineText, url: shownUrl }
-      : inlineAllowed
-        ? findInlineCompletion(value, historySuggestions)
-        : null
+    inline === true ? findInlineCompletion(value, historySuggestions) : shownCompletion(inline)
   if (completion) {
     const { text, url } = completion
     const visited = historySuggestions.find((row) => row.url === url)
@@ -229,12 +223,21 @@ function findInlineCompletion(
   rows: readonly BrowserAddressBarSuggestion[]
 ): { text: string; url: string } | null {
   for (const row of rows) {
-    const completion = row.docLocation ? null : getBrowserAddressBarInlineCompletion(typed, row.url)
+    if (row.docLocation) {
+      continue
+    }
+    const completion = getBrowserAddressBarInlineCompletion(typed, row.url)
     if (completion) {
       return completion
     }
   }
   return null
+}
+
+// Why the text's own URL: Enter submits the bar text, so that is where the completion goes.
+function shownCompletion(text: string | null): { text: string; url: string } | null {
+  const url = text ? normalizeBrowserNavigationUrl(text) : null
+  return text && url ? { text, url } : null
 }
 
 /**
@@ -258,7 +261,7 @@ export function getBrowserAddressBarInlineCompletion(
   const schemeLength = /^[a-z][a-z\d+.-]*:\/\//i.exec(typed)?.[0].length ?? 0
   const pathStart = typed.indexOf('/', schemeLength)
   const withinHost = pathStart === -1
-  // Why web only: a UNC file URL has a host too, but completing it would send the bar to a site.
+  // Why web only: a file URL's host (empty, or a UNC server) is never a site to complete to.
   if (withinHost && parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     return null
   }
