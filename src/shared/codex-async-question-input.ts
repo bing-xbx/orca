@@ -12,7 +12,7 @@ export function parseCodexAsyncQuestionsInput(input: unknown): AskPrompt | null 
   const questions: AskQuestion[] = []
   for (const raw of rawQuestions) {
     if (raw && typeof raw === 'object' && 'title' in raw && typeof raw.title === 'string') {
-      const options = 'options' in raw && Array.isArray(raw.options) ? raw.options : []
+      const options: unknown[] = 'options' in raw && Array.isArray(raw.options) ? raw.options : []
       questions.push({
         question: raw.title,
         multiSelect: false,
