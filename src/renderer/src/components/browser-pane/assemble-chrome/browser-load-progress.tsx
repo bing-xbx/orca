@@ -3,8 +3,7 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 
 // Why a delay: loads that finish sooner (most local dev servers) should show nothing at all.
 const SHOW_DELAY_MS = 200
-// Why so long: the line holds at 90% for a slow page, then gives up on one that never stops.
-const TRICKLE_MS = 10 * 60_000
+const TRICKLE_MS = 30_000
 const TRICKLE_ID = 'browser-load-trickle'
 const STILL_ID = 'browser-load-still'
 
@@ -15,7 +14,6 @@ const TRICKLE_STEPS: [atMs: number, scale: number][] = [
   [2_000, 0.45],
   [6_000, 0.7],
   [15_000, 0.85],
-  [30_000, 0.9],
   [TRICKLE_MS, 0.9]
 ]
 const TRICKLE_KEYFRAMES: Keyframe[] = TRICKLE_STEPS.map(([atMs, scale]) => ({
@@ -26,9 +24,8 @@ const TRICKLE_KEYFRAMES: Keyframe[] = TRICKLE_STEPS.map(([atMs, scale]) => ({
 }))
 // Reduced motion: a still, dimmed full-width line that still reads as "working".
 const STILL_KEYFRAMES: Keyframe[] = [
-  { offset: 0, transform: 'scaleX(1)', opacity: 0 },
-  { offset: 150 / TRICKLE_MS, transform: 'scaleX(1)', opacity: 0.5 },
-  { offset: 1, transform: 'scaleX(1)', opacity: 0.5 }
+  { transform: 'scaleX(1)', opacity: 0 },
+  { transform: 'scaleX(1)', opacity: 0.5 }
 ]
 
 /** A thin line along the bottom edge of the address bar while the page loads. */
@@ -47,8 +44,6 @@ export function BrowserLoadProgress({
     if (!bar) {
       return
     }
-    // Why finish() and never cancel(): with no fill an ended animation leaves the bar at its
-    // hidden base style, and finish() resolves rather than rejecting `finished`.
     const animations = bar.getAnimations()
     const running = animations.find(({ id }) => id === TRICKLE_ID || id === STILL_ID)
     if (loading) {
@@ -57,12 +52,15 @@ export function BrowserLoadProgress({
       if (running?.id === id) {
         return
       }
-      animations.forEach((animation) => animation.finish())
+      animations.forEach((animation) => animation.cancel())
+      // Why fill forwards: a slow page holds at its last frame, and a finished animation costs
+      // nothing per frame, even in a hidden tab.
       bar.animate(reducedMotion ? STILL_KEYFRAMES : TRICKLE_KEYFRAMES, {
         id,
-        duration: TRICKLE_MS,
+        duration: reducedMotion ? 150 : TRICKLE_MS,
         // A motion-preference switch mid-load swaps the animation without hiding it again.
-        delay: running ? 0 : SHOW_DELAY_MS
+        delay: running ? 0 : SHOW_DELAY_MS,
+        fill: 'forwards'
       })
       return
     }
@@ -70,7 +68,7 @@ export function BrowserLoadProgress({
       return
     }
     const { transform, opacity } = getComputedStyle(bar)
-    running.finish()
+    running.cancel()
     // Still inside the show delay: the load was fast enough to show nothing.
     if (Number(opacity) === 0) {
       return
@@ -86,6 +84,12 @@ export function BrowserLoadProgress({
       { duration: 450, easing: 'ease-out' }
     )
   }, [failed, loading, reducedMotion])
+
+  useEffect(() => {
+    const bar = barRef.current
+    // Why: an animation outlives its removed element and keeps ticking until cancelled.
+    return () => bar?.getAnimations().forEach((animation) => animation.cancel())
+  }, [])
 
   return (
     // Why -inset-px: the line sits on the bar's bottom border instead of a pixel above it.
