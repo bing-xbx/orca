@@ -16785,7 +16785,8 @@
               "bar": {
                 "suggestions": {
                   "87fcdd0da9": "{{value0}} 搜索"
-                }
+                },
+                "placeholder": "搜索或输入网址"
               }
             }
           },

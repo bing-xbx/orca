@@ -213,7 +213,7 @@ describe('RemoteBrowserPagePane address bar parity', () => {
     vi.unstubAllGlobals()
   })
 
-  it('opens a new blank tab in the address bar with its text selected', () => {
+  it('opens a new blank tab in an empty, focused address bar', () => {
     useAppStore.setState({
       pendingAddressBarFocusByPageId: { [PAGE_ID]: true },
       pendingAddressBarFocusByTabId: { [PAGE_ID]: true }
@@ -223,8 +223,7 @@ describe('RemoteBrowserPagePane address bar parity', () => {
 
     const input = addressBar()
     expect(document.activeElement).toBe(input)
-    expect(input.selectionStart).toBe(0)
-    expect(input.selectionEnd).toBe('about:blank'.length)
+    expect(input.value).toBe('')
   })
 
   it('offers the shared URL history as suggestions once the bar has focus', () => {

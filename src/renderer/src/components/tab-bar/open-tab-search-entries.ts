@@ -124,22 +124,39 @@ export function selectOpenTabSearchAgentState(state: AppState): OpenTabSearchAge
   }
 }
 
-export function buildOpenTabSearchEntries(
-  state: OpenTabSearchEntryState,
-  agentState: OpenTabSearchAgentState
-): OpenTabSearchEntries {
+function openTabSearchScope(state: OpenTabSearchEntryState) {
   const { repo, worktree } = state
   const scopedWorktree =
     worktree.hostId === state.executionHostId
       ? worktree
       : { ...worktree, hostId: state.executionHostId }
-  const worktrees = [scopedWorktree]
-  const scope = {
-    worktrees,
+  return {
+    worktrees: [scopedWorktree],
     ownershipWorktrees: getPaletteOwnershipWorktreeIds(state),
     repoMap: new Map(repo ? [[repo.id, repo]] : []),
     worktreeOrder: new Map([[worktree.id, 0]])
   }
+}
+
+export function buildOpenTabSearchBrowserPages(
+  state: OpenTabSearchEntryState
+): SearchableBrowserPage[] {
+  return buildSearchableBrowserPages({
+    ...openTabSearchScope(state),
+    browserTabsByWorktree: state.browserTabsByWorktree,
+    browserPagesByWorkspace: state.browserPagesByWorkspace,
+    unifiedTabsByWorktree: state.unifiedTabsByWorktree,
+    activeBrowserTabId: state.activeBrowserTabId,
+    activeWorktreeId: state.activeWorktreeId,
+    activeTabType: state.activeTabType
+  })
+}
+
+export function buildOpenTabSearchEntries(
+  state: OpenTabSearchEntryState,
+  agentState: OpenTabSearchAgentState
+): OpenTabSearchEntries {
+  const scope = openTabSearchScope(state)
 
   return {
     workspaceTabs: buildSearchableWorkspaceTabs({
@@ -163,15 +180,7 @@ export function buildOpenTabSearchEntries(
       activeTabTypeByWorktree: state.activeTabTypeByWorktree,
       generatedTitlesEnabled: state.generatedTitlesEnabled
     }),
-    browserPages: buildSearchableBrowserPages({
-      ...scope,
-      browserTabsByWorktree: state.browserTabsByWorktree,
-      browserPagesByWorkspace: state.browserPagesByWorkspace,
-      unifiedTabsByWorktree: state.unifiedTabsByWorktree,
-      activeBrowserTabId: state.activeBrowserTabId,
-      activeWorktreeId: state.activeWorktreeId,
-      activeTabType: state.activeTabType
-    }),
+    browserPages: buildOpenTabSearchBrowserPages(state),
     simulatorTabs: buildSearchableSimulatorTabs({
       ...scope,
       unifiedTabsByWorktree: state.unifiedTabsByWorktree,

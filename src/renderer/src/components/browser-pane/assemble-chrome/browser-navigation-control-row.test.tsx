@@ -44,6 +44,7 @@ function renderRow(overrides: Partial<BrowserNavigationControls> = {}): BrowserN
         controls={controls}
         addressSlot={
           <BrowserAddressBar
+            pageId="page-1"
             value="https://example.com/"
             onChange={vi.fn()}
             onSubmit={vi.fn()}

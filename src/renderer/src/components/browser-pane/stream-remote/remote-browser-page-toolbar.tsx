@@ -61,6 +61,7 @@ export function RemoteBrowserPageToolbar({
       }}
       addressSlot={
         <BrowserAddressBar
+          pageId={addressBarEditSession.pageId}
           value={addressBarValue}
           onChange={onAddressBarChange}
           onSubmit={onSubmitAddressBar}

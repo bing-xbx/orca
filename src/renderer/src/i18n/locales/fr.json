@@ -16893,7 +16893,8 @@
               "bar": {
                 "suggestions": {
                   "87fcdd0da9": "Recherche {{value0}}"
-                }
+                },
+                "placeholder": "Rechercher ou saisir une URL"
               }
             }
           },
