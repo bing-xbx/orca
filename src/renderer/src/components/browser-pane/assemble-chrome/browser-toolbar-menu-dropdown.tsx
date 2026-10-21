@@ -21,6 +21,11 @@ import type {
   BrowserSessionProfile,
   BrowserViewportPresetId
 } from '../../../../../shared/browser-workspace-types'
+import type {
+  BrowserPageSiteDisplay,
+  BrowserSiteColorScheme
+} from '../../../../../shared/browser-site-display'
+import type { BrowserPageZoomDirection } from '../../../../../shared/browser-page-zoom'
 
 type DetectedBrowserEntry = {
   family: string
@@ -34,6 +39,10 @@ import {
   BrowserChromeFoldedMenuItems,
   type BrowserChromeOverflowMenuProps
 } from './browser-chrome-folded-tools'
+import {
+  BrowserToolbarAppearanceSub,
+  BrowserToolbarZoomRow
+} from './browser-toolbar-page-display-items'
 
 type BrowserToolbarMenuDropdownProps = {
   menuOpen: boolean
@@ -49,6 +58,9 @@ type BrowserToolbarMenuDropdownProps = {
   onImportFromFile: () => void
   viewportPresetId: BrowserViewportPresetId | null
   onApplyViewportPreset: (nextId: BrowserViewportPresetId | null) => void
+  siteDisplay: BrowserPageSiteDisplay | null
+  onZoomPage: (direction: BrowserPageZoomDirection) => void
+  onSetSiteColorScheme: (colorScheme: BrowserSiteColorScheme | null) => void
   onOpenSourceFile?: (() => void) | null
   overflow: BrowserChromeOverflowMenuProps
 }
@@ -67,6 +79,9 @@ export function BrowserToolbarMenuDropdown({
   onImportFromFile,
   viewportPresetId,
   onApplyViewportPreset,
+  siteDisplay,
+  onZoomPage,
+  onSetSiteColorScheme,
   onOpenSourceFile = null,
   overflow
 }: BrowserToolbarMenuDropdownProps): React.JSX.Element {
@@ -212,6 +227,11 @@ export function BrowserToolbarMenuDropdown({
 
         <DropdownMenuSeparator />
 
+        <BrowserToolbarZoomRow display={siteDisplay} onZoom={onZoomPage} />
+        <BrowserToolbarAppearanceSub
+          display={siteDisplay}
+          onSetColorScheme={onSetSiteColorScheme}
+        />
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <Monitor className="mr-2 size-3.5" />

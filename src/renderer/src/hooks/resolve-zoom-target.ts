@@ -13,12 +13,27 @@ function closestFocusedElement(element: unknown, selector: string): unknown {
   return null
 }
 
+/** The browser page whose pane holds focus: its address bar, toolbar or page. */
+export function focusedBrowserPageId(activeElement: unknown): string | null {
+  const pane = closestFocusedElement(activeElement, '[data-browser-page-pane-id]')
+  if (
+    typeof pane === 'object' &&
+    pane !== null &&
+    'getAttribute' in pane &&
+    typeof pane.getAttribute === 'function'
+  ) {
+    const browserPageId: unknown = pane.getAttribute('data-browser-page-pane-id')
+    return typeof browserPageId === 'string' ? browserPageId : null
+  }
+  return null
+}
+
 /** Zoom belongs to the focused surface within the current workspace. */
 export function resolveZoomTarget(args: {
   activeView: TopLevelView
   activeTabType: WorkspaceVisibleTabType
   activeElement: unknown
-}): 'terminal' | 'editor' | 'simulator' | 'chat' | 'ui' {
+}): 'terminal' | 'editor' | 'simulator' | 'chat' | 'browser' | 'ui' {
   const { activeView, activeTabType, activeElement } = args
   const terminalInputFocused =
     typeof activeElement === 'object' &&
@@ -43,8 +58,11 @@ export function resolveZoomTarget(args: {
   if (activeTabType === 'simulator') {
     return 'simulator'
   }
-  // Why: keyboard/menu zoom in an active browser tab belongs to Orca chrome.
-  // Browser page zoom has a dedicated route for wheel and page-specific IPC.
+  // Why: as in Chrome, zooming from the address bar or toolbar zooms the page.
+  if (focusedBrowserPageId(activeElement)) {
+    return 'browser'
+  }
+  // Why: with focus outside the pane, the chord belongs to Orca's own zoom.
   if (activeTabType === 'browser') {
     return 'ui'
   }

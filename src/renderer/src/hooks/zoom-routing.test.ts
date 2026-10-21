@@ -7,17 +7,22 @@ function makeTarget(args: {
   hasXtermClass?: boolean
   editorClosest?: boolean
   chatClosest?: boolean
+  browserPageId?: string
 }): {
   classList: { contains: (token: string) => boolean }
   closest: (selector: string) => object | null
 } {
-  const { hasXtermClass = false, editorClosest = false, chatClosest = false } = args
+  const { hasXtermClass = false, editorClosest = false, chatClosest = false, browserPageId } = args
   return {
     classList: {
       contains: (token: string) => hasXtermClass && token === 'xterm-helper-textarea'
     },
-    closest: (selector) =>
-      (selector === '[data-native-chat-root]' ? chatClosest : editorClosest) ? {} : null
+    closest: (selector) => {
+      if (selector === '[data-browser-page-pane-id]') {
+        return browserPageId ? { getAttribute: () => browserPageId } : null
+      }
+      return (selector === '[data-native-chat-root]' ? chatClosest : editorClosest) ? {} : null
+    }
   }
 }
 
@@ -136,6 +141,10 @@ describe('registerZoomIpcBridge', () => {
     })
 
     const requestPdfZoom = vi.fn(() => pdfTakesZoom)
+    const dispatchBrowserPageZoom = vi.fn()
+    vi.doMock('@/components/browser-pane/host-guest/browser-page-zoom', () => ({
+      dispatchBrowserPageZoom
+    }))
     vi.doMock('@/components/editor/pdf-zoom-request', () => ({ requestPdfZoom }))
     vi.doMock('@/lib/ui-zoom', () => ({ applyUIZoom }))
     vi.doMock('@/lib/zoom-events', () => ({ dispatchZoomLevelChanged }))
@@ -180,6 +189,7 @@ describe('registerZoomIpcBridge', () => {
     }
     return {
       fire,
+      dispatchBrowserPageZoom,
       requestPdfZoom,
       applyUIZoom,
       dispatchZoomLevelChanged,
@@ -229,7 +239,23 @@ describe('registerZoomIpcBridge', () => {
     expect(zoom.setEditorFontZoomLevel).not.toHaveBeenCalled()
   })
 
-  it('applies app zoom for an active browser tab', async () => {
+  it('zooms the page, not the app, while focus is in its browser pane', async () => {
+    const zoom = await mountZoomBridge({
+      activeTabType: 'browser',
+      activeElement: makeTarget({ browserPageId: 'page-1' })
+    })
+
+    zoom.fire('in')
+    zoom.fire('reset')
+
+    expect(zoom.dispatchBrowserPageZoom.mock.calls).toEqual([
+      [{ browserPageId: 'page-1', direction: 'in' }],
+      [{ browserPageId: 'page-1', direction: 'reset' }]
+    ])
+    expect(zoom.applyUIZoom).not.toHaveBeenCalled()
+  })
+
+  it('applies app zoom for an active browser tab when focus is outside its pane', async () => {
     const zoom = await mountZoomBridge({ activeTabType: 'browser' })
 
     zoom.fire('in')

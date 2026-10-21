@@ -67,6 +67,9 @@ describe('cookie-import Google disclosure footer', () => {
           onImportFromFile={vi.fn()}
           viewportPresetId={null}
           onApplyViewportPreset={vi.fn()}
+          siteDisplay={null}
+          onZoomPage={vi.fn()}
+          onSetSiteColorScheme={vi.fn()}
           overflow={{
             triggerRef: createRef<HTMLButtonElement>(),
             tools: [],

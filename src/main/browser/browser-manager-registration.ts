@@ -72,6 +72,12 @@ export abstract class BrowserManagerRegistration extends BrowserManagerGuestPoli
       this.worktreeIdByTabId.set(browserTabId, worktreeId)
     }
     this.certificateTrustController?.onGuestRegistered(webContentsId, browserTabId)
+    // Why the pending URL: the first load starts before the renderer can register the guest.
+    this.siteDisplayController?.onGuestRegistered(
+      guest,
+      sessionProfileId ?? null,
+      this.resolveTabNavigationUrl(guest)
+    )
 
     this.setupContextMenu(browserTabId, guest)
     this.setupGrabShortcut(browserTabId, guest)

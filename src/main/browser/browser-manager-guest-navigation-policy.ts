@@ -51,6 +51,7 @@ export abstract class BrowserManagerGuestNavigationPolicy extends BrowserManager
       }
       this.updatePendingNavigationForRedirect(guest.id, url)
       void this.retargetTabIdentity(guest, url)
+      this.siteDisplayController?.onMainFrameNavigationStarted(guest.id, url)
     }
 
     const didFailLoadHandler = (
@@ -116,6 +117,9 @@ export abstract class BrowserManagerGuestNavigationPolicy extends BrowserManager
       // every UA writer must read the in-flight target or they disagree about the tab's host.
       this.startPendingNavigation(guest.id, url)
       void this.presentTabIdentityAtNavigationStart(guest, url, isInPlace)
+      if (!isInPlace) {
+        this.siteDisplayController?.onMainFrameNavigationStarted(guest.id, url)
+      }
       this.certificateTrustController?.onMainFrameNavigationStarted(guest.id)
       // Why: a pre-registration failure belongs only to its own nav; a replacement nav must not replay it.
       this.pendingLoadFailuresByGuestId.delete(guest.id)
@@ -136,6 +140,7 @@ export abstract class BrowserManagerGuestNavigationPolicy extends BrowserManager
       // Why: a committed nav makes the did-start-navigation stash obsolete; drop it so a later ERR_ABORTED can't restore an error over it.
       this.clearedLoadErrorsByGuestId.delete(guest.id)
       this.certificateTrustController?.onMainFrameNavigationCommitted(guest.id, url)
+      this.siteDisplayController?.onMainFrameNavigationCommitted(guest.id)
       // Why: an offscreen page has no renderer to publish its row, so this commit is the only
       // moment paired clients can learn the new url — every failure path above already announces.
       this.notifyBrowserGuestStateChanged(guest.id)
