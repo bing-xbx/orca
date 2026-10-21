@@ -416,6 +416,9 @@ describe('getBrowserAddressBarInlineCompletion', () => {
     ['fi', 'file:///Users/me/report.html'],
     // A UNC path's host is a file server, not a site.
     ['fil', 'file://files.example.com/share/report.html'],
+    // The bare host submits with the default scheme, not the visited one.
+    ['loc', 'https://localhost:3000/dashboard'],
+    ['exa', 'http://example.com/'],
     // Paths are case-sensitive, so /D must not complete to (and then open) /docs.
     ['example.com/D', 'https://example.com/docs'],
     // Submit would search for a bare single-label word, so it must not look like an address.

@@ -284,7 +284,9 @@ export function getBrowserAddressBarInlineCompletion(
     !target ||
     // A single-label host like "intranet" is a search to the submit path, not an address.
     normalizeBrowserNavigationUrl(text, DEFAULT_SEARCH_ENGINE) !== target ||
-    (!withinHost && target !== normalizeBrowserNavigationUrl(url))
+    (!withinHost && target !== normalizeBrowserNavigationUrl(url)) ||
+    // `localhost:3000` submits as http, so it can't stand for a visited https site (or vice versa).
+    (withinHost && new URL(target).protocol !== parsed.protocol)
   ) {
     return null
   }
