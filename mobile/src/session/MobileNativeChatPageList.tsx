@@ -68,6 +68,8 @@ type Props = {
   rows: readonly NativeChatMessage[]
   rowKeys: Pick<MobileNativeChatRowKeys, 'scope' | 'keyOf' | 'current' | 'placement'>
   renderItem: (row: Row) => ReactElement
+  /** Each run's rows by its head's index: the head draws them all. */
+  runs?: ReadonlyMap<number, readonly NativeChatMessage[]>
   /** How rows draw (Tools, text size): a change re-lays every row, so the place is kept mid-scroll. */
   layoutKey: string
   contentContainerStyle: StyleProp<ViewStyle>
@@ -94,6 +96,7 @@ export function MobileNativeChatPageList({
   rows: liveRows,
   rowKeys,
   renderItem,
+  runs,
   layoutKey,
   contentContainerStyle,
   header,
@@ -115,13 +118,34 @@ export function MobileNativeChatPageList({
   const heldRef = useRef<Held | null>(null)
   const [, release] = useState(0)
   const held = heldRef.current
-  const { rows, heldFrom } = useMemo(() => {
+  const { rows, heldFrom, heldAt } = useMemo(() => {
+    const unheld = { rows: liveRows, heldFrom: Infinity, heldAt: 0 }
     const head = held?.rows[0]
     const at = head ? liveRows.findIndex((row) => rowKeys.keyOf(row) === rowKeys.keyOf(head)) : -1
-    return !held || at === -1
-      ? { rows: liveRows, heldFrom: Infinity }
-      : { rows: [...liveRows.slice(0, at), ...held.rows], heldFrom: at }
-  }, [held, liveRows, rowKeys])
+    if (!held || at === -1) {
+      return unheld
+    }
+    // An older page can begin a run the held rows are in; its head draws them, so they draw live.
+    let last: NativeChatMessage | undefined
+    for (const [index, members] of runs ?? []) {
+      if (index >= at) {
+        break
+      }
+      last = members.at(-1)
+    }
+    const from = Math.max(at, last ? liveRows.indexOf(last, at) + 1 : 0)
+    const kept = liveRows.slice(at, from).every((row, i) => {
+      const was = held.rows[i]
+      return was !== undefined && rowKeys.keyOf(was) === rowKeys.keyOf(row)
+    })
+    return kept
+      ? {
+          rows: [...liveRows.slice(0, from), ...held.rows.slice(from - at)],
+          heldFrom: from,
+          heldAt: at
+        }
+      : unheld
+  }, [held, liveRows, rowKeys, runs])
   const footer = held ? held.footer : liveFooter
   const keys = useMemo(() => rows.map(rowKeys.keyOf), [rows, rowKeys.keyOf])
   const indexOf = useMemo(() => new Map(keys.map((key, at) => [key, at])), [keys])
@@ -362,7 +386,7 @@ export function MobileNativeChatPageList({
               return (
                 <Fragment key={keys[index]}>
                   {held && index >= heldFrom
-                    ? held.renderItem({ item, index: index - heldFrom })
+                    ? held.renderItem({ item, index: index - heldAt })
                     : renderItem({ item, index })}
                 </Fragment>
               )

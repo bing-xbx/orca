@@ -16,6 +16,7 @@ import {
 import { mobileNativeChatRowId } from './mobile-native-chat-reading-place'
 import { MobileNativeChatPageList } from './MobileNativeChatPageList'
 import { ToolRun } from './MobileNativeChatToolRun'
+import { useMobileNativeChatTurnDisclosure } from './use-mobile-native-chat-turn-disclosure'
 
 const platform = vi.hoisted(() => ({ OS: 'web' }))
 // The page list's scrollable node: the fake page below, once mounted.
@@ -205,14 +206,22 @@ function page(tree: () => Node | Node[] | null) {
 function Row({
   message,
   rowKey,
-  joined = 0
+  joined = 0,
+  workRun,
+  joinsWorkRun
 }: {
   message: NativeChatMessage
   rowKey: string
   /** Lines the chat's state adds to the row, as a run's new members do. */
   joined?: number
-}): ReactElement {
-  const { prose, tools } = splitNativeChatBlocks(message.blocks)
+  /** As the chat draws a run: its head draws every member, and the members draw nothing. */
+  workRun?: readonly NativeChatMessage[]
+  joinsWorkRun?: boolean
+}): ReactElement | null {
+  if (joinsWorkRun) {
+    return null
+  }
+  const { prose, tools } = splitNativeChatBlocks((workRun ?? [message]).flatMap((m) => m.blocks))
   const words = prose
     .map((block, i) => h('span', { key: i }, block.type === 'text' ? block.text : ''))
     .concat(Array.from({ length: joined }, (_, i) => h('span', { key: `joined:${i}` }, 'joined')))
@@ -228,25 +237,38 @@ function Chat(props: {
   live: boolean
   /** Lines the last row's state adds, outside its messages. */
   joined?: number
+  /** Tool rows group into runs, as in a structured chat. */
+  runs?: boolean
 }): ReactElement {
   const folded = useMemo(
     () => foldMobileNativeChatMessages(props.messages, 'claude'),
     [props.messages]
   )
-  const keys = useMobileNativeChatRowKeys(folded, props.messages, 'chat')
+  const turns = useMobileNativeChatTurnDisclosure({
+    messages: folded,
+    enabled: props.runs === true,
+    isWorking: false,
+    scopeKey: 'chat'
+  })
+  const keys = useMobileNativeChatRowKeys(folded, props.messages, 'chat', turns.presentation)
   shownKeys = keys
   return h(MobileNativeChatPageList, {
     ref: null,
-    rows: folded,
+    rows: turns.listMessages,
     rowKeys: keys,
+    runs: turns.presentation.workRuns.heads,
     isFollowing: () => props.following,
     onEndDistance: () => {},
-    renderItem: ({ item }) =>
-      h(Row, {
+    renderItem: ({ item, index }) => {
+      const { workRun, joinsWorkRun } = turns.resolveRow(index, item)
+      return h(Row, {
         message: item,
         rowKey: keys.keyOf(item),
-        joined: item === folded.at(-1) ? props.joined : 0
-      }),
+        joined: item === folded.at(-1) ? props.joined : 0,
+        workRun,
+        joinsWorkRun
+      })
+    },
     layoutKey: 'layout',
     contentContainerStyle: null,
     header: h('div', { testID: 'header' }, h('span', null, 'Loading')),
@@ -256,7 +278,10 @@ function Chat(props: {
   })
 }
 
-function mount(messages: NativeChatMessage[], options = { following: false, live: false }) {
+function mount(
+  messages: NativeChatMessage[],
+  options: { following: boolean; live: boolean; runs?: boolean } = { following: false, live: false }
+) {
   let renderer!: ReactTestRenderer
   act(() => {
     renderer = create(h('div'))
@@ -376,6 +401,28 @@ it("holds a row's look with its messages: what the chat's state adds lands once 
   chat0.rest()
   expect(chat0.lines(mobileNativeChatRowId('m11'))).toBe(4)
   expect(chat0.scroller.top(mobileNativeChatRowId('m4'))).toBe(line)
+})
+
+it('draws a run once when an older page brings in its start while the reader moves', () => {
+  const call = (id: string): NativeChatMessage => ({
+    ...say(id, 'assistant', ''),
+    blocks: [{ type: 'tool-call', name: 'Bash', callId: id, input: { command: id } }]
+  })
+  const thought: NativeChatMessage = { ...say('t', 'assistant', 'weighing it'), role: 'reasoning' }
+  const later = Array.from({ length: 12 }, (_, i) =>
+    say(`m${i}`, i % 2 ? 'assistant' : 'user', 'x')
+  )
+  const chat0 = mount([thought, call('b'), ...later], { following: false, live: false, runs: true })
+  chat0.scroller.showFrom(40)
+  chat0.scrolled()
+  // The page ends inside the run: its first call joins the thought and call the reader has.
+  chat0.show([say('u', 'user', 'go'), call('a'), thought, call('b'), ...later])
+  const once = ['u', 'a', 'm0'].map(mobileNativeChatRowId)
+  expect(chat0.rows().slice(0, 3)).toEqual(once)
+  expect(chat0.drawn('chat-member:run')).toBe(1)
+  chat0.rest()
+  expect(chat0.rows().slice(0, 3)).toEqual(once)
+  expect(chat0.drawn('chat-member:run')).toBe(1)
 })
 
 it('opens a chat whose newest rows are short and older ones tall without drawing in a loop', () => {

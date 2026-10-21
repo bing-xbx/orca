@@ -14,6 +14,7 @@ type Props = Pick<
   | 'rows'
   | 'roots'
   | 'renderItem'
+  | 'runs'
   | 'layoutKey'
   | 'contentContainerStyle'
   | 'header'
@@ -33,11 +34,11 @@ export function MobileNativeChatRowList(props: Props): ReactElement {
   const { tail, rowKeys, rows, renderItem, contentContainerStyle, onScroll, footer } = props
   const { header, emptyStateView } = props
   if (Platform.OS === 'web') {
-    const { roots, layoutKey, onNearTop } = props
+    const { roots, runs, layoutKey, onNearTop } = props
     return (
       <MobileNativeChatPageList
         {...tail.pageListProps}
-        {...{ rows, rowKeys, roots, renderItem, contentContainerStyle, layoutKey }}
+        {...{ rows, rowKeys, roots, renderItem, runs, contentContainerStyle, layoutKey }}
         {...{ header, footer, emptyStateView, onScroll, onNearTop }}
       />
     )
