@@ -186,7 +186,7 @@ export function BrowserPageToolbar({
           menuOpen={reloadMenuOpen}
           onMenuOpenChange={setReloadMenuOpen}
           label={reloadButtonLabel}
-          loading={loading}
+          showStop={reloadButtonLabelKind === 'stop'}
           showShortcutHint={reloadButtonLabelKind === 'reload'}
           reloadShortcut={reloadShortcut}
           hardReloadShortcut={hardReloadShortcut}

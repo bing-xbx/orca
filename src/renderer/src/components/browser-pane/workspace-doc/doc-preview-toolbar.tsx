@@ -79,7 +79,6 @@ export function DocPreviewToolbar({
           menuOpen={reloadMenuOpen}
           onMenuOpenChange={setReloadMenuOpen}
           label={reloadLabel}
-          loading={loading}
           showShortcutHint={false}
           reloadShortcut=""
           hardReloadShortcut=""

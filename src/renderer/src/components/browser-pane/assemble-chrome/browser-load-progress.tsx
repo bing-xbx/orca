@@ -6,6 +6,7 @@ const SHOW_DELAY_MS = 200
 // Why so long: the line holds at 90% for a slow page, then gives up on one that never stops.
 const TRICKLE_MS = 10 * 60_000
 const TRICKLE_ID = 'browser-load-trickle'
+const STILL_ID = 'browser-load-still'
 
 // Electron reports no load percentage, so the line eases toward 90% and the real stop finishes it.
 const TRICKLE_STEPS: [atMs: number, scale: number][] = [
@@ -49,27 +50,29 @@ export function BrowserLoadProgress({
     // Why finish() and never cancel(): with no fill an ended animation leaves the bar at its
     // hidden base style, and finish() resolves rather than rejecting `finished`.
     const animations = bar.getAnimations()
-    const trickle = animations.find((animation) => animation.id === TRICKLE_ID)
+    const running = animations.find(({ id }) => id === TRICKLE_ID || id === STILL_ID)
     if (loading) {
+      const id = reducedMotion ? STILL_ID : TRICKLE_ID
       // Why: a navigation that replaces one in flight keeps loading true, so the line carries on.
-      if (trickle) {
+      if (running?.id === id) {
         return
       }
       animations.forEach((animation) => animation.finish())
       bar.animate(reducedMotion ? STILL_KEYFRAMES : TRICKLE_KEYFRAMES, {
-        id: TRICKLE_ID,
+        id,
         duration: TRICKLE_MS,
-        delay: SHOW_DELAY_MS
+        // A motion-preference switch mid-load swaps the animation without hiding it again.
+        delay: running ? 0 : SHOW_DELAY_MS
       })
       return
     }
-    if (!trickle) {
+    if (!running) {
       return
     }
-    const shown = Number(trickle.currentTime ?? 0) >= SHOW_DELAY_MS
     const { transform, opacity } = getComputedStyle(bar)
-    trickle.finish()
-    if (!shown) {
+    running.finish()
+    // Still inside the show delay: the load was fast enough to show nothing.
+    if (Number(opacity) === 0) {
       return
     }
     // Why: a failed load fades where it stopped instead of filling up like a success.
