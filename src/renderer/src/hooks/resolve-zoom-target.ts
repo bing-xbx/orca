@@ -13,17 +13,24 @@ function closestFocusedElement(element: unknown, selector: string): unknown {
   return null
 }
 
-/** The browser page whose pane holds focus: its address bar, toolbar or page. */
+const BROWSER_PAGE_ID_ATTRIBUTES = ['data-browser-page-pane-id', 'data-browser-page-viewport-id']
+
+/**
+ * The browser page that holds focus: its address bar or toolbar, or the page itself, whose
+ * <webview> lives in a viewport shell outside the pane.
+ */
 export function focusedBrowserPageId(activeElement: unknown): string | null {
-  const pane = closestFocusedElement(activeElement, '[data-browser-page-pane-id]')
-  if (
-    typeof pane === 'object' &&
-    pane !== null &&
-    'getAttribute' in pane &&
-    typeof pane.getAttribute === 'function'
-  ) {
-    const browserPageId: unknown = pane.getAttribute('data-browser-page-pane-id')
-    return typeof browserPageId === 'string' ? browserPageId : null
+  for (const attribute of BROWSER_PAGE_ID_ATTRIBUTES) {
+    const owner = closestFocusedElement(activeElement, `[${attribute}]`)
+    if (
+      typeof owner === 'object' &&
+      owner !== null &&
+      'getAttribute' in owner &&
+      typeof owner.getAttribute === 'function'
+    ) {
+      const browserPageId: unknown = owner.getAttribute(attribute)
+      return typeof browserPageId === 'string' ? browserPageId : null
+    }
   }
   return null
 }

@@ -69,6 +69,7 @@ export abstract class BrowserManagerGuestNavigationPolicy extends BrowserManager
       if (failedNavigationWasCurrent) {
         // Restore the identity of the document that remains (usually the failed URL's error page).
         void this.retargetTabIdentity(guest, guest.getURL())
+        this.siteDisplayController?.onMainFrameDocumentSettled(guest.id)
       }
       const browserPageId = this.tabIdByWebContentsId.get(guest.id)
       const certificateFailure = browserPageId
@@ -140,7 +141,7 @@ export abstract class BrowserManagerGuestNavigationPolicy extends BrowserManager
       // Why: a committed nav makes the did-start-navigation stash obsolete; drop it so a later ERR_ABORTED can't restore an error over it.
       this.clearedLoadErrorsByGuestId.delete(guest.id)
       this.certificateTrustController?.onMainFrameNavigationCommitted(guest.id, url)
-      this.siteDisplayController?.onMainFrameNavigationCommitted(guest.id)
+      this.siteDisplayController?.onMainFrameDocumentSettled(guest.id)
       // Why: an offscreen page has no renderer to publish its row, so this commit is the only
       // moment paired clients can learn the new url — every failure path above already announces.
       this.notifyBrowserGuestStateChanged(guest.id)

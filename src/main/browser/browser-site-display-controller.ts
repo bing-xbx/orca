@@ -92,8 +92,12 @@ export class BrowserSiteDisplayController {
     this.applyColorScheme(guestId, url)
   }
 
-  /** Zoom is keyed by the committed host, so it can only be set once the navigation commits. */
-  onMainFrameNavigationCommitted(guestId: number): void {
+  /**
+   * Shows the committed document as its site wants, after a commit or after a navigation that
+   * never committed (stopped, or turned into a download) left the previous document in place.
+   * Zoom is keyed by the committed host, so it can only be set here.
+   */
+  onMainFrameDocumentSettled(guestId: number): void {
     const tracked = this.guests.get(guestId)
     if (tracked) {
       // Why the scheme again: a restored tab's first load starts before its guest registers.

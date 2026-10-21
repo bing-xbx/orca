@@ -56,7 +56,7 @@ function fakeGuest(url: string): FakeGuest {
 function commit(controller: BrowserSiteDisplayController, guest: FakeGuest, url: string): void {
   controller.onMainFrameNavigationStarted(guest.id, url)
   guest.url = url
-  controller.onMainFrameNavigationCommitted(guest.id)
+  controller.onMainFrameDocumentSettled(guest.id)
   guest.emit('dom-ready')
 }
 
@@ -129,7 +129,7 @@ describe('BrowserSiteDisplayController zoom', () => {
 
     controller.onMainFrameNavigationStarted(guest.id, 'https://github.com/next')
     guest.url = 'https://github.com/next'
-    controller.onMainFrameNavigationCommitted(guest.id)
+    controller.onMainFrameDocumentSettled(guest.id)
     copyUIZoom()
     guest.emit('dom-ready')
     expect(percent(guest)).toBe(110)
@@ -154,6 +154,19 @@ describe('BrowserSiteDisplayController color scheme', () => {
     expect(guest.mediaSent).toEqual(['dark', '', 'dark', 'dark'])
   })
 
+  it('puts the scheme back when a navigation to another site never commits', () => {
+    const controller = new BrowserSiteDisplayController()
+    const guest = fakeGuest('https://github.com/')
+    controller.onGuestRegistered(guest, null, guest.url)
+    controller.setColorScheme(guest.id, 'dark')
+
+    // e.g. a link that turns into a download: the GitHub page stays on screen.
+    controller.onMainFrameNavigationStarted(guest.id, 'https://objects.githubusercontent.com/x.zip')
+    controller.onMainFrameDocumentSettled(guest.id)
+
+    expect(guest.mediaSent).toEqual(['dark', '', 'dark'])
+  })
+
   it('gives a restored tab its scheme when its first load started before it registered', () => {
     const controller = new BrowserSiteDisplayController()
     const first = fakeGuest('https://github.com/')
@@ -163,7 +176,7 @@ describe('BrowserSiteDisplayController color scheme', () => {
     const restored = fakeGuest('')
     controller.onGuestRegistered(restored, null, '')
     restored.url = 'https://github.com/restored'
-    controller.onMainFrameNavigationCommitted(restored.id)
+    controller.onMainFrameDocumentSettled(restored.id)
 
     expect(restored.mediaSent).toEqual(['light'])
   })
