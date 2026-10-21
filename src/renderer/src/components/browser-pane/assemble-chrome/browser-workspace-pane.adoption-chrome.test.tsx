@@ -513,7 +513,7 @@ describe.each([
     renderWorkspacePane()
 
     const remounted = addressBar()
-    expect(remounted.value).toBe('about:blank')
+    expect(remounted.value).toBe('')
     expect(document.activeElement).not.toBe(remounted)
   })
 
@@ -526,7 +526,7 @@ describe.each([
     act(() => flushFrames())
 
     const adopted = addressBar()
-    expect(adopted.value).toBe('about:blank')
+    expect(adopted.value).toBe('')
     // Why: a user reading the page must not have focus yanked into chrome, nor a dropdown opened
     // over the page, by a handover they never asked for.
     expect(document.activeElement).not.toBe(adopted)

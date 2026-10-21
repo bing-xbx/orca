@@ -11,7 +11,12 @@ import type {
   BrowserPageDocLocation
 } from '../../../../../shared/browser-workspace-types'
 import type { WorkspaceDocHistoryEntry } from '../../../../../shared/workspace-doc-history'
-import { matchBrowserHistory, prepareBrowserHistoryEntries } from '@/lib/browser-history-match'
+import {
+  formatBrowserHistoryUrl,
+  matchBrowserHistory,
+  prepareBrowserHistoryEntries
+} from '@/lib/browser-history-match'
+import { formatBrowserPaletteUrl } from '@/lib/browser-palette-search'
 import { isClipboardTextByteLengthOverLimit } from '../../../../../shared/clipboard-text'
 import { translate } from '@/i18n/i18n'
 
@@ -55,13 +60,16 @@ export function buildBrowserAddressBarSuggestions({
   workspaceDocHistory = [],
   kagiSessionLink,
   searchEngine = DEFAULT_SEARCH_ENGINE,
-  value
+  value,
+  inlineAllowed = false
 }: {
   browserUrlHistory: readonly BrowserHistoryEntry[]
   workspaceDocHistory?: readonly WorkspaceDocHistoryEntry[]
   kagiSessionLink?: string | null
   searchEngine?: SearchEngine
   value: string
+  /** Set while the bar shows an inline completion, so the completed row is the one on top. */
+  inlineAllowed?: boolean
 }): BrowserAddressBarSuggestion[] {
   if (isBrowserAddressBarQueryTooLarge(value)) {
     return []
@@ -139,15 +147,75 @@ export function buildBrowserAddressBarSuggestions({
       : null
   }
 
+  // Why: like Chrome, row 0 is what Enter does. A visited page that starts with the typed text
+  // takes it (the bar completes inline to it); otherwise what you typed does.
+  const completion = inlineAllowed
+    ? historySuggestions
+        .filter((row) => !row.docLocation)
+        .map((row) => getBrowserAddressBarInlineCompletion(value, row.url))
+        .find((candidate) => candidate !== null)
+    : undefined
+  if (completion) {
+    const completedRow = historySuggestions.find((row) => row.url === completion.url) ?? {
+      url: completion.url,
+      title: completion.text,
+      subtitle: '',
+      lastVisitedAt: 0,
+      visitCount: 0,
+      isSearch: false
+    }
+    const rest = historySuggestions.filter(
+      (row) => row !== completedRow && row.url !== topAction?.url
+    )
+    return [completedRow, ...rest.slice(0, MAX_BROWSER_ADDRESS_BAR_SUGGESTIONS - 2), topAction]
+      .filter((row): row is BrowserAddressBarSuggestion => row !== null)
+      .slice(0, MAX_BROWSER_ADDRESS_BAR_SUGGESTIONS)
+  }
   if (!topAction) {
     return historySuggestions.slice(0, MAX_BROWSER_ADDRESS_BAR_SUGGESTIONS)
   }
+  // Why: the history row gives Enter the same target while showing real page metadata, so it
+  // takes the typed row's place on top.
+  const duplicate = historySuggestions.find((h) => h.url === topAction.url)
+  return [duplicate ?? topAction, ...historySuggestions.filter((h) => h !== duplicate)].slice(
+    0,
+    MAX_BROWSER_ADDRESS_BAR_SUGGESTIONS
+  )
+}
 
-  // Why: the history row gives Enter the same target while showing real page metadata.
-  const duplicateIdx = historySuggestions.findIndex((h) => h.url === topAction.url)
-  if (duplicateIdx !== -1) {
-    return historySuggestions.slice(0, MAX_BROWSER_ADDRESS_BAR_SUGGESTIONS)
+/**
+ * Completes `typed` inline to a visited URL, keeping what the user typed. While the typed text
+ * is still inside the host it completes only the host, as Chrome does, so typing an address
+ * never lands on some deeper page of that site.
+ */
+export function getBrowserAddressBarInlineCompletion(
+  typed: string,
+  url: string
+): { text: string; url: string } | null {
+  if (typed === '' || /\s/.test(typed)) {
+    return null
   }
-
-  return [topAction, ...historySuggestions].slice(0, MAX_BROWSER_ADDRESS_BAR_SUGGESTIONS)
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return null
+  }
+  const lowerTyped = typed.toLowerCase()
+  const withinHost = !typed.replace(/^[a-z][a-z\d+.-]*:\/\//i, '').includes('/')
+  if (withinHost && parsed.host === '') {
+    return null
+  }
+  const origin = `${parsed.protocol}//${parsed.host}`
+  const forms = withinHost
+    ? [parsed.host.replace(/^www\./, ''), parsed.host, origin]
+    : [formatBrowserHistoryUrl(url), formatBrowserPaletteUrl(url), url]
+  const form = forms.find((candidate) => candidate.toLowerCase().startsWith(lowerTyped))
+  if (form === undefined) {
+    return null
+  }
+  return {
+    text: typed + form.slice(typed.length),
+    url: withinHost ? `${origin}/` : url
+  }
 }

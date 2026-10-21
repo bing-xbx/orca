@@ -16786,7 +16786,8 @@
               "bar": {
                 "suggestions": {
                   "87fcdd0da9": "{{value0}} 검색"
-                }
+                },
+                "placeholder": "검색어 또는 URL 입력"
               }
             }
           },

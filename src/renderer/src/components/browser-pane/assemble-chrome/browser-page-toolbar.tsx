@@ -165,6 +165,7 @@ export function BrowserPageToolbar({
       }}
       addressSlot={
         <BrowserAddressBar
+          pageId={browserPageId}
           value={addressBarValue}
           onChange={setAddressBarValue}
           onSubmit={submitAddressBar}

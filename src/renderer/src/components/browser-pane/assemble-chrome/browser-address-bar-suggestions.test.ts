@@ -3,6 +3,7 @@ import type { BrowserHistoryEntry } from '../../../../../shared/browser-workspac
 import {
   BROWSER_ADDRESS_BAR_QUERY_MAX_BYTES,
   buildBrowserAddressBarSuggestions,
+  getBrowserAddressBarInlineCompletion,
   isBrowserAddressBarQueryTooLarge,
   MAX_BROWSER_ADDRESS_BAR_SUGGESTIONS
 } from './browser-address-bar-suggestions'
@@ -269,10 +270,17 @@ describe('browser address bar suggestions', () => {
       )
     })
 
-    it('folds the synthetic row away when history already offers the same url', () => {
+    it('folds the synthetic row into the history row and keeps it on top, where Enter goes', () => {
       const suggestions = buildBrowserAddressBarSuggestions({
         value: 'acme.dev',
         browserUrlHistory: [
+          historyEntry({
+            url: 'https://acme.dev/docs',
+            normalizedUrl: 'https://acme.dev/docs',
+            title: 'Acme docs',
+            lastVisitedAt: now,
+            visitCount: 40
+          }),
           historyEntry({
             url: 'https://acme.dev/',
             normalizedUrl: 'https://acme.dev',
@@ -284,9 +292,72 @@ describe('browser address bar suggestions', () => {
       })
 
       expect(suggestions).toEqual([
-        expect.objectContaining({ url: 'https://acme.dev/', title: 'Acme', isSearch: false })
+        expect.objectContaining({ url: 'https://acme.dev/', title: 'Acme', isSearch: false }),
+        expect.objectContaining({ url: 'https://acme.dev/docs' })
       ])
     })
+
+    it('puts the completed host first and the typed search last while the bar completes inline', () => {
+      const suggestions = buildBrowserAddressBarSuggestions({
+        value: 'git',
+        inlineAllowed: true,
+        searchEngine: 'duckduckgo',
+        browserUrlHistory: [
+          historyEntry({
+            url: 'https://github.com/stablyai/orca/pulls',
+            normalizedUrl: 'https://github.com/stablyai/orca/pulls',
+            title: 'Pull requests',
+            lastVisitedAt: now,
+            visitCount: 9
+          }),
+          historyEntry({
+            url: 'https://github.com/stablyai/orca',
+            normalizedUrl: 'https://github.com/stablyai/orca',
+            title: 'Orca',
+            lastVisitedAt: now,
+            visitCount: 2
+          })
+        ]
+      })
+
+      expect(suggestions.map((suggestion) => suggestion.url)).toEqual([
+        'https://github.com/',
+        'https://github.com/stablyai/orca/pulls',
+        'https://github.com/stablyai/orca',
+        'https://duckduckgo.com/?q=git'
+      ])
+    })
+  })
+})
+
+describe('getBrowserAddressBarInlineCompletion', () => {
+  it.each([
+    ['git', 'https://github.com/stablyai/orca', 'github.com', 'https://github.com/'],
+    // A fully typed host must never complete to a deeper page of that site.
+    [
+      'localhost:3000',
+      'http://localhost:3000/dashboard',
+      'localhost:3000',
+      'http://localhost:3000/'
+    ],
+    ['www.ex', 'https://www.example.com/a', 'www.example.com', 'https://www.example.com/'],
+    ['https://gi', 'https://github.com/x', 'https://github.com', 'https://github.com/'],
+    [
+      'GitHub.com/st',
+      'https://github.com/stablyai/orca',
+      'GitHub.com/stablyai/orca',
+      'https://github.com/stablyai/orca'
+    ]
+  ])('completes %s against %s', (typed, url, text, target) => {
+    expect(getBrowserAddressBarInlineCompletion(typed, url)).toEqual({ text, url: target })
+  })
+
+  it.each([
+    ['orca', 'https://github.com/stablyai/orca'],
+    ['git hub', 'https://github.com/'],
+    ['fi', 'file:///Users/me/report.html']
+  ])('does not complete %s against %s', (typed, url) => {
+    expect(getBrowserAddressBarInlineCompletion(typed, url)).toBeNull()
   })
 })
 
