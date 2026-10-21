@@ -70,6 +70,44 @@ export type OpenTabSearchBrowserPageState = Pick<
   | 'worktreesByRepo'
 >
 
+// Why picked: the full entry state also follows terminal titles and editor tabs, which would
+// re-render a subscriber that only needs the open browser pages.
+export function selectOpenTabSearchBrowserPageState(
+  state: AppState,
+  worktreeId: string
+): OpenTabSearchBrowserPageState | null {
+  const entry = selectOpenTabSearchEntryState(state, worktreeId)
+  if (!entry) {
+    return null
+  }
+  const {
+    activeBrowserTabId,
+    activeTabType,
+    activeWorktreeId,
+    browserPagesByWorkspace,
+    browserTabsByWorktree,
+    executionHostId,
+    folderWorkspaces,
+    repo,
+    unifiedTabsByWorktree,
+    worktree,
+    worktreesByRepo
+  } = entry
+  return {
+    activeBrowserTabId,
+    activeTabType,
+    activeWorktreeId,
+    browserPagesByWorkspace,
+    browserTabsByWorktree,
+    executionHostId,
+    folderWorkspaces,
+    repo,
+    unifiedTabsByWorktree,
+    worktree,
+    worktreesByRepo
+  }
+}
+
 export type OpenTabSearchAgentState = Pick<
   AppState,
   | 'agentStatusByPaneKey'
