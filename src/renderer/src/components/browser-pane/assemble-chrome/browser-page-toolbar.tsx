@@ -140,7 +140,6 @@ export function BrowserPageToolbar({
       controls={{
         canGoBack: canGoBack || Boolean(convertedFrom),
         canGoForward: canGoForward || Boolean(convertedTo),
-        loading,
         // Why the fallbacks: guest history cannot survive a conversion (the guest was replaced),
         // so once it runs out Back returns across the conversion — and Forward re-crosses it —
         // instead of going dead.

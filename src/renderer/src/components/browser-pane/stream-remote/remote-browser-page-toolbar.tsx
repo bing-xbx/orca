@@ -55,7 +55,6 @@ export function RemoteBrowserPageToolbar({
         // dead-end back/forward RPC is simply a no-op on the host.
         canGoBack: true,
         canGoForward: true,
-        loading: busy || loading,
         goBack: onBack,
         goForward: onForward,
         reload: onReload,

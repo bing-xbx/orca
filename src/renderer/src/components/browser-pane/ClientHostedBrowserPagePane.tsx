@@ -36,6 +36,7 @@ import { getBrowserPageZoomIndicatorState } from './host-guest/browser-page-zoom
 import { useBrowserPageWebviewShortcuts } from './host-guest/use-browser-page-webview-shortcuts'
 import { useClientHostedGuestActivationFocus } from './host-guest/use-client-hosted-guest-activation-focus'
 import { useBrowserPageZoomFeedback } from './host-guest/use-browser-page-zoom-feedback'
+import { isPageDocumentNavigationStart } from './host-guest/browser-page-webview-navigation-handlers'
 import { BrowserLoadFailureOverlay } from './navigate/browser-load-failure-overlay'
 import { useClientHostedPageUrlSubmission } from './navigate/use-client-hosted-page-url-submission'
 import { convertBrowserPageToWorkspaceDoc } from '@/lib/file-preview'
@@ -257,8 +258,7 @@ export function ClientHostedBrowserPagePane({
       setAddressBarValueFromPage(toDisplayUrl(metadata.url))
     }
     const onStart = (event: Electron.DidStartNavigationEvent): void => {
-      // Why not did-start-loading: that also fires for iframe loads, which aren't page loads.
-      if (!event.isMainFrame || event.isInPlace) {
+      if (!isPageDocumentNavigationStart(event)) {
         return
       }
       activeLoadFailureRef.current = null
@@ -354,7 +354,6 @@ export function ClientHostedBrowserPagePane({
           controls={{
             canGoBack: browserTab.canGoBack,
             canGoForward: browserTab.canGoForward,
-            loading,
             goBack: () => webviewRef.current?.goBack(),
             goForward: () => webviewRef.current?.goForward(),
             reload: () => reload.runReloadTrigger('button'),
@@ -382,6 +381,7 @@ export function ClientHostedBrowserPagePane({
             />
           }
           reloadLabel={reload.reloadButtonLabel}
+          reloadShowsStop={reload.reloadButtonLabelKind === 'stop'}
         >
           {markup.drawButton}
         </BrowserNavigationControlRow>

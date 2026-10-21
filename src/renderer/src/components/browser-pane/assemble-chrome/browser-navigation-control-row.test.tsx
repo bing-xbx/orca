@@ -30,7 +30,6 @@ function renderRow(overrides: Partial<BrowserNavigationControls> = {}): BrowserN
   const controls: BrowserNavigationControls = {
     canGoBack: true,
     canGoForward: true,
-    loading: false,
     goBack: vi.fn(),
     goForward: vi.fn(),
     reload: vi.fn(),
@@ -65,7 +64,6 @@ function renderWithIdentityChip(): void {
       controls={{
         canGoBack: false,
         canGoForward: false,
-        loading: false,
         goBack: vi.fn(),
         goForward: vi.fn(),
         reload: vi.fn(),

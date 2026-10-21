@@ -45,11 +45,12 @@ export function useBrowserPageReloadActions({
         return
       }
       const result = reloadBrowserPageWebview(webview, { ignoreCache })
-      if (result === 'reloaded') {
-        onUpdatePageStateRef.current(browserTab.id, { loading: true })
-      } else if (result === 'guest-missing') {
+      if (result === 'not-ready') {
+        return
+      }
+      onUpdatePageStateRef.current(browserTab.id, { loading: true })
+      if (result === 'guest-missing') {
         // Why: reload cannot revive a destroyed guest (STA-3448) — recreate it instead.
-        onUpdatePageStateRef.current(browserTab.id, { loading: true })
         retryGuestRecoveryRef.current()
       }
     },

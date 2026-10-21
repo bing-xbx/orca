@@ -20,7 +20,6 @@ export function DocPreviewToolbar({
   previewId,
   worktreeId,
   history,
-  loading,
   onReload,
   onHardReload,
   onCopyPath,
@@ -38,7 +37,6 @@ export function DocPreviewToolbar({
   previewId: string
   worktreeId: string
   history: DocPreviewHistory
-  loading: boolean
   onReload: () => void
   /** Drops the grant and mints a new one — the preview's equivalent of ignoring every cache. */
   onHardReload: () => void
@@ -64,7 +62,6 @@ export function DocPreviewToolbar({
       controls={{
         canGoBack: history.canGoBack,
         canGoForward: history.canGoForward,
-        loading,
         goBack: history.goBack,
         goForward: history.goForward,
         reload: onReload,
