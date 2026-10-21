@@ -102,11 +102,8 @@ export default function BrowserAddressBar({
       }),
     [browserUrlHistory, workspaceDocHistory, searchEngine, browserKagiSessionLink]
   )
-  const { inline, completeTyping, clearInline } = useBrowserAddressBarInlineCompletion({
-    inputRef,
-    value,
-    buildSuggestions
-  })
+  const { inline, completeTyping, clearInline, acceptOnCaretMove } =
+    useBrowserAddressBarInlineCompletion({ inputRef, value, buildSuggestions, prePreviewValueRef })
   useBrowserAddressBarEditHandoff({
     editSession,
     inputRef,
@@ -411,6 +408,7 @@ export default function BrowserAddressBar({
               onClick={addressBarClickSelect.onClick}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
+              onSelect={acceptOnCaretMove}
               data-orca-browser-address-bar="true"
               className="h-auto border-0 bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
               spellCheck={false}
