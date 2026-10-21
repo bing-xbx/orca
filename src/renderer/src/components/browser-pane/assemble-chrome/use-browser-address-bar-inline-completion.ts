@@ -8,12 +8,7 @@ import {
   type RefObject,
   type SyntheticEvent
 } from 'react'
-import {
-  getBrowserAddressBarInlineCompletion,
-  type BrowserAddressBarSuggestion
-} from './browser-address-bar-suggestions'
-
-export type BrowserAddressBarInlineCompletion = { url: string; text: string }
+import type { BrowserAddressBarSuggestion } from './browser-address-bar-suggestions'
 
 /**
  * Chrome-style inline autocomplete: typing the start of a visited address fills in the rest,
@@ -31,82 +26,73 @@ export function useBrowserAddressBarInlineCompletion({
   /** Holds the typed text while a completion shows; cleared once the completion is accepted. */
   prePreviewValueRef: MutableRefObject<string | null>
 }): {
-  inline: BrowserAddressBarInlineCompletion | null
+  /** The bar text while an inline completion shows. */
+  inlineText: string | null
   /** The bar text for this edit when it completes inline; null keeps what was typed. */
   completeTyping: (event: ChangeEvent<HTMLInputElement>, typed: string) => string | null
   clearInline: () => void
   /** Moving the caret off the completion (ArrowRight, End, a click) accepts it as typed text. */
   acceptOnCaretMove: (event: SyntheticEvent<HTMLInputElement>) => void
 } {
-  const [inline, setInline] = useState<BrowserAddressBarInlineCompletion | null>(null)
+  const [inlineText, setInlineText] = useState<string | null>(null)
   const pendingSelectionRef = useRef<{ start: number; end: number } | null>(null)
 
   useLayoutEffect(() => {
     const range = pendingSelectionRef.current
     const input = inputRef.current
-    if (!range || !input || input.value !== inline?.text) {
+    if (!range || !input || input.value !== inlineText) {
       return
     }
     pendingSelectionRef.current = null
     input.setSelectionRange(range.start, range.end)
-  }, [inline, inputRef, value])
+  }, [inlineText, inputRef, value])
 
   const completeTyping = useCallback(
     (event: ChangeEvent<HTMLInputElement>, typed: string): string | null => {
-      const completion = findInlineCompletion(event, typed, buildSuggestions)
-      setInline(completion)
-      if (!completion) {
-        return null
+      const text = isTypingAtEnd(event, typed)
+        ? (buildSuggestions(typed, true)[0]?.inlineText ?? null)
+        : null
+      const completed = text !== null && text.length > typed.length ? text : null
+      setInlineText(completed)
+      if (completed !== null) {
+        pendingSelectionRef.current = { start: typed.length, end: completed.length }
       }
-      pendingSelectionRef.current = { start: typed.length, end: completion.text.length }
-      return completion.text
+      return completed
     },
     [buildSuggestions]
   )
 
-  const clearInline = useCallback(() => setInline(null), [])
+  const clearInline = useCallback(() => setInlineText(null), [])
 
   const acceptOnCaretMove = useCallback(
     (event: SyntheticEvent<HTMLInputElement>): void => {
       const input = event.currentTarget
       const typed = prePreviewValueRef.current
       if (
-        !inline ||
+        inlineText === null ||
         typed === null ||
-        input.value !== inline.text ||
-        (input.selectionStart === typed.length && input.selectionEnd === inline.text.length)
+        input.value !== inlineText ||
+        (input.selectionStart === typed.length && input.selectionEnd === inlineText.length)
       ) {
         return
       }
       // Why: otherwise a later blur or Escape would put the bar back to the typed prefix.
       prePreviewValueRef.current = null
-      setInline(null)
+      setInlineText(null)
     },
-    [inline, prePreviewValueRef]
+    [inlineText, prePreviewValueRef]
   )
 
-  return { inline, completeTyping, clearInline, acceptOnCaretMove }
+  return { inlineText, completeTyping, clearInline, acceptOnCaretMove }
 }
 
 // Why typing only: like Chrome, a paste, an IME composition or a deletion never completes,
 // so Backspace removes the completion instead of bringing it straight back.
-function findInlineCompletion(
-  event: ChangeEvent<HTMLInputElement>,
-  typed: string,
-  buildSuggestions: (query: string, inlineAllowed: boolean) => BrowserAddressBarSuggestion[]
-): BrowserAddressBarInlineCompletion | null {
+function isTypingAtEnd(event: ChangeEvent<HTMLInputElement>, typed: string): boolean {
   const native = event.nativeEvent
-  if (
-    !(native instanceof InputEvent) ||
-    native.inputType !== 'insertText' ||
-    event.target.selectionStart !== typed.length
-  ) {
-    return null
-  }
-  const top = buildSuggestions(typed, true)[0]
-  if (!top || top.isSearch || top.docLocation) {
-    return null
-  }
-  const completion = getBrowserAddressBarInlineCompletion(typed, top.url)
-  return completion && completion.text.length > typed.length ? completion : null
+  return (
+    native instanceof InputEvent &&
+    native.inputType === 'insertText' &&
+    event.target.selectionStart === typed.length
+  )
 }

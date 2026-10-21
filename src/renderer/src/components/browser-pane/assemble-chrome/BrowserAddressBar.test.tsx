@@ -53,7 +53,9 @@ vi.mock('@/lib/browser-page-palette-activation', () => ({
 vi.mock('../host-guest/browser-focus', () => ({ requestBrowserFocus: vi.fn() }))
 
 vi.mock('@/store', () => ({
-  useAppStore: (selector: (state: typeof mocks) => unknown) => selector(mocks)
+  useAppStore: Object.assign((selector: (state: typeof mocks) => unknown) => selector(mocks), {
+    getState: () => mocks
+  })
 }))
 
 vi.mock('@/components/ui/popover', () => ({

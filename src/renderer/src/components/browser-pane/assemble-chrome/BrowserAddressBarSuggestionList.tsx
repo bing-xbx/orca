@@ -12,8 +12,8 @@ type BrowserAddressBarSuggestionListProps = {
   onSelectedValueChange: (value: string) => void
   onSelect: (url: string) => void
   hasSwitchTarget: (suggestion: BrowserAddressBarSuggestion) => boolean
-  /** The selected row's button holds keyboard focus (focus itself stays in the input). */
-  switchFocused: boolean
+  /** The row whose button holds keyboard focus (focus itself stays in the input). */
+  switchFocusedUrl: string | null
   onSwitchToTab: (url: string) => void
 }
 
@@ -23,7 +23,7 @@ export default function BrowserAddressBarSuggestionList({
   onSelectedValueChange,
   onSelect,
   hasSwitchTarget,
-  switchFocused,
+  switchFocusedUrl,
   onSwitchToTab
 }: BrowserAddressBarSuggestionListProps): React.ReactElement {
   return (
@@ -58,7 +58,7 @@ export default function BrowserAddressBarSuggestionList({
                 <Button
                   // Why a variant and not a ring: focus stays in the input, so :focus-visible never
                   // applies; the filled button shows Tab has moved onto it.
-                  variant={switchFocused && entry.url === selectedValue ? 'default' : 'outline'}
+                  variant={entry.url === switchFocusedUrl ? 'default' : 'outline'}
                   size="xs"
                   tabIndex={-1}
                   className="shrink-0"

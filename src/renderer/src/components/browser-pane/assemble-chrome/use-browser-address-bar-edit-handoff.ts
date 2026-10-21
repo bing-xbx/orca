@@ -62,27 +62,24 @@ export function useBrowserAddressBarEditHandoff({
       }
       const typedQuery = prePreviewValueRef.current
       // Why: an inline completion is not kept across a remount, so hand on what was typed.
-      if (liveEditRef.current.inlineShown && typedQuery !== null) {
-        saveBrowserAddressBarEditSession(editSessionPageId, {
-          draft: typedQuery,
-          selection: { start: typedQuery.length, end: typedQuery.length, direction: 'none' },
-          suggestionsOpen: liveEditRef.current.open,
-          preview: null
-        })
-        return
-      }
+      const inlineTyped = liveEditRef.current.inlineShown ? typedQuery : null
       saveBrowserAddressBarEditSession(editSessionPageId, {
-        draft: liveEditRef.current.value,
-        selection: {
-          start: input.selectionStart ?? input.value.length,
-          end: input.selectionEnd ?? input.value.length,
-          direction: input.selectionDirection ?? 'none'
-        },
+        draft: inlineTyped ?? liveEditRef.current.value,
+        selection:
+          inlineTyped !== null
+            ? { start: inlineTyped.length, end: inlineTyped.length, direction: 'none' }
+            : {
+                start: input.selectionStart ?? input.value.length,
+                end: input.selectionEnd ?? input.value.length,
+                direction: input.selectionDirection ?? 'none'
+              },
         suggestionsOpen: liveEditRef.current.open,
         // Why the draft alone is not enough: mid-preview it holds the highlighted suggestion, and
         // dropping this would strand the user with no way back to what they actually typed.
         preview:
-          typedQuery === null ? null : { typedQuery, previewedUrl: liveEditRef.current.value }
+          typedQuery === null || inlineTyped !== null
+            ? null
+            : { typedQuery, previewedUrl: liveEditRef.current.value }
       })
     }
   }, [editSessionPageId, inputRef, prePreviewValueRef])

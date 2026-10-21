@@ -13,6 +13,7 @@ import type {
 import type { WorkspaceDocHistoryEntry } from '../../../../../shared/workspace-doc-history'
 import {
   formatBrowserHistoryUrl,
+  historyHost,
   matchBrowserHistory,
   prepareBrowserHistoryEntries
 } from '@/lib/browser-history-match'
@@ -34,6 +35,8 @@ export type BrowserAddressBarSuggestion = {
   isSearch: boolean
   /** Set on a previewed-document row; selecting it opens the document on a fresh grant. */
   docLocation?: BrowserPageDocLocation
+  /** On row 0 when the bar completes the typed text inline to it: the full bar text. */
+  inlineText?: string
 }
 
 function toWorkspaceDocSuggestion(entry: WorkspaceDocHistoryEntry): BrowserAddressBarSuggestion {
@@ -149,24 +152,28 @@ export function buildBrowserAddressBarSuggestions({
 
   // Why: like Chrome, row 0 is what Enter does. A visited page that starts with the typed text
   // takes it (the bar completes inline to it); otherwise what you typed does.
-  const completion = inlineAllowed
-    ? historySuggestions
-        .filter((row) => !row.docLocation)
-        .map((row) => getBrowserAddressBarInlineCompletion(value, row.url))
-        .find((candidate) => candidate !== null)
-    : undefined
-  if (completion) {
-    const completedRow = historySuggestions.find((row) => row.url === completion.url) ?? {
-      url: completion.url,
-      title: completion.text,
-      subtitle: '',
-      lastVisitedAt: 0,
-      visitCount: 0,
-      isSearch: false
+  let completion: { text: string; url: string } | null = null
+  for (const row of inlineAllowed ? historySuggestions : []) {
+    completion = row.docLocation ? null : getBrowserAddressBarInlineCompletion(value, row.url)
+    if (completion) {
+      break
     }
-    const rest = historySuggestions.filter(
-      (row) => row !== completedRow && row.url !== topAction?.url
-    )
+  }
+  if (completion) {
+    const { text, url } = completion
+    const visited = historySuggestions.find((row) => row.url === url)
+    const completedRow = visited
+      ? { ...visited, inlineText: text }
+      : {
+          url,
+          title: text,
+          subtitle: '',
+          lastVisitedAt: 0,
+          visitCount: 0,
+          isSearch: false,
+          inlineText: text
+        }
+    const rest = historySuggestions.filter((row) => row !== visited && row.url !== topAction?.url)
     return [completedRow, ...rest.slice(0, MAX_BROWSER_ADDRESS_BAR_SUGGESTIONS - 2), topAction]
       .filter((row): row is BrowserAddressBarSuggestion => row !== null)
       .slice(0, MAX_BROWSER_ADDRESS_BAR_SUGGESTIONS)
@@ -209,7 +216,7 @@ export function getBrowserAddressBarInlineCompletion(
   }
   const origin = `${parsed.protocol}//${parsed.host}`
   const forms = withinHost
-    ? [parsed.host.replace(/^www\./, ''), parsed.host, origin]
+    ? [historyHost(url), parsed.host, origin]
     : [formatBrowserHistoryUrl(url), formatBrowserPaletteUrl(url), url]
   // Why case only counts from the path on: hosts are case-insensitive, paths and queries aren't.
   const prefixEnd = withinHost ? typed.length : pathStart

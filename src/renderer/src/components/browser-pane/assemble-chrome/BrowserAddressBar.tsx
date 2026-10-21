@@ -102,7 +102,7 @@ export default function BrowserAddressBar({
       }),
     [browserUrlHistory, workspaceDocHistory, searchEngine, browserKagiSessionLink]
   )
-  const { inline, completeTyping, clearInline, acceptOnCaretMove } =
+  const { inlineText, completeTyping, clearInline, acceptOnCaretMove } =
     useBrowserAddressBarInlineCompletion({ inputRef, value, buildSuggestions, prePreviewValueRef })
   useBrowserAddressBarEditHandoff({
     editSession,
@@ -111,11 +111,11 @@ export default function BrowserAddressBar({
     openedAtRef,
     setSelectedValueOverride,
     setOpen,
-    live: { value, open, inlineShown: inline !== null && value === inline.text }
+    live: { value, open, inlineShown: inlineText !== null && value === inlineText }
   })
   const suggestions = useMemo(
-    () => buildSuggestions(autocompleteQuery, inline !== null),
-    [buildSuggestions, autocompleteQuery, inline]
+    () => buildSuggestions(autocompleteQuery, inlineText !== null),
+    [buildSuggestions, autocompleteQuery, inlineText]
   )
 
   const clearSuggestionPreview = useCallback((): void => {
@@ -192,7 +192,7 @@ export default function BrowserAddressBar({
         ? ''
         : (suggestions[0]?.url ?? '')
   const selectedRow = suggestions.find((suggestion) => suggestion.url === selectedValue)
-  const switchFocused = switchToTab.focusedUrl !== null && switchToTab.focusedUrl === selectedValue
+  const switchFocused = switchToTab.focusedUrl === selectedValue
 
   const handleFocus = useCallback(() => {
     if (closingRef.current) {
@@ -275,7 +275,7 @@ export default function BrowserAddressBar({
         return
       }
 
-      if (open && switchToTab.handleTabKey(event, selectedRow)) {
+      if (switchToTab.handleTabKey(event, selectedRow)) {
         return
       }
 
@@ -456,7 +456,7 @@ export default function BrowserAddressBar({
               onSelectedValueChange={setSelectedValueOverride}
               onSelect={handleSelect}
               hasSwitchTarget={switchToTab.hasSwitchTarget}
-              switchFocused={switchFocused}
+              switchFocusedUrl={switchFocused ? selectedValue : null}
               onSwitchToTab={switchToTab.switchToTab}
             />
           </PopoverContent>

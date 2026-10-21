@@ -39,7 +39,8 @@ const preparedHistoryCache = new WeakMap<
   readonly PreparedBrowserHistoryEntry[]
 >()
 
-function historyHost(url: string): string {
+/** Host with scheme and a leading "www." stripped, lowercased; empty when the URL won't parse. */
+export function historyHost(url: string): string {
   try {
     return new URL(url).host.toLowerCase().replace(/^www\./, '')
   } catch {

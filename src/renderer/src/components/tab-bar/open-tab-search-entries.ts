@@ -54,6 +54,22 @@ export type OpenTabSearchEntryState = Pick<
   worktree: Worktree
 }
 
+/** What the browser-page part of the entries reads; a narrower store subscription than the rest. */
+export type OpenTabSearchBrowserPageState = Pick<
+  OpenTabSearchEntryState,
+  | 'activeBrowserTabId'
+  | 'activeTabType'
+  | 'activeWorktreeId'
+  | 'browserPagesByWorkspace'
+  | 'browserTabsByWorktree'
+  | 'executionHostId'
+  | 'folderWorkspaces'
+  | 'repo'
+  | 'unifiedTabsByWorktree'
+  | 'worktree'
+  | 'worktreesByRepo'
+>
+
 export type OpenTabSearchAgentState = Pick<
   AppState,
   | 'agentStatusByPaneKey'
@@ -124,7 +140,7 @@ export function selectOpenTabSearchAgentState(state: AppState): OpenTabSearchAge
   }
 }
 
-function openTabSearchScope(state: OpenTabSearchEntryState) {
+function openTabSearchScope(state: OpenTabSearchBrowserPageState) {
   const { repo, worktree } = state
   const scopedWorktree =
     worktree.hostId === state.executionHostId
@@ -139,10 +155,11 @@ function openTabSearchScope(state: OpenTabSearchEntryState) {
 }
 
 export function buildOpenTabSearchBrowserPages(
-  state: OpenTabSearchEntryState
+  state: OpenTabSearchBrowserPageState,
+  scope = openTabSearchScope(state)
 ): SearchableBrowserPage[] {
   return buildSearchableBrowserPages({
-    ...openTabSearchScope(state),
+    ...scope,
     browserTabsByWorktree: state.browserTabsByWorktree,
     browserPagesByWorkspace: state.browserPagesByWorkspace,
     unifiedTabsByWorktree: state.unifiedTabsByWorktree,
@@ -180,7 +197,7 @@ export function buildOpenTabSearchEntries(
       activeTabTypeByWorktree: state.activeTabTypeByWorktree,
       generatedTitlesEnabled: state.generatedTitlesEnabled
     }),
-    browserPages: buildOpenTabSearchBrowserPages(state),
+    browserPages: buildOpenTabSearchBrowserPages(state, scope),
     simulatorTabs: buildSearchableSimulatorTabs({
       ...scope,
       unifiedTabsByWorktree: state.unifiedTabsByWorktree,
