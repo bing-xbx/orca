@@ -253,6 +253,42 @@ describe('BrowserAddressBar autocomplete preview', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
+  it('lets Enter submit again once Escape has left a focused Switch to tab button', async () => {
+    mocks.openPageUrl = 'http://localhost:3000/review-one'
+    const onNavigate = vi.fn()
+    const onSubmit = vi.fn()
+    await act(async () => {
+      root.render(
+        <AddressBarHarness initialValue="review" onNavigate={onNavigate} onSubmit={onSubmit} />
+      )
+    })
+    const input = container.querySelector<HTMLInputElement>('input[data-orca-browser-address-bar]')
+    if (!input) {
+      throw new Error('address bar input missing')
+    }
+    await act(async () => {
+      input.focus()
+    })
+    const press = async (key: string): Promise<void> => {
+      await act(async () => {
+        input.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
+      })
+    }
+    await press('ArrowDown')
+    await press('Tab')
+    await press('Escape')
+    await act(async () => {
+      input.blur()
+      vi.advanceTimersByTime(250)
+      input.focus()
+    })
+    await press('ArrowDown')
+    await press('Enter')
+
+    expect(mocks.activateBrowserPage).not.toHaveBeenCalled()
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+
   it('dismisses suggestions when the window blurs', async () => {
     const onNavigate = vi.fn()
     const onSubmit = vi.fn()

@@ -201,8 +201,9 @@ export function getBrowserAddressBarInlineCompletion(
   } catch {
     return null
   }
-  const lowerTyped = typed.toLowerCase()
-  const withinHost = !typed.replace(/^[a-z][a-z\d+.-]*:\/\//i, '').includes('/')
+  const schemeLength = /^[a-z][a-z\d+.-]*:\/\//i.exec(typed)?.[0].length ?? 0
+  const pathStart = typed.indexOf('/', schemeLength)
+  const withinHost = pathStart === -1
   if (withinHost && parsed.host === '') {
     return null
   }
@@ -210,7 +211,13 @@ export function getBrowserAddressBarInlineCompletion(
   const forms = withinHost
     ? [parsed.host.replace(/^www\./, ''), parsed.host, origin]
     : [formatBrowserHistoryUrl(url), formatBrowserPaletteUrl(url), url]
-  const form = forms.find((candidate) => candidate.toLowerCase().startsWith(lowerTyped))
+  // Why case only counts from the path on: hosts are case-insensitive, paths and queries aren't.
+  const prefixEnd = withinHost ? typed.length : pathStart
+  const form = forms.find(
+    (candidate) =>
+      candidate.slice(0, prefixEnd).toLowerCase() === typed.slice(0, prefixEnd).toLowerCase() &&
+      candidate.startsWith(typed.slice(prefixEnd), prefixEnd)
+  )
   if (form === undefined) {
     return null
   }

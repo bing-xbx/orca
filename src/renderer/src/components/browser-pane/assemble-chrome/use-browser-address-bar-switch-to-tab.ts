@@ -46,6 +46,15 @@ export function useBrowserAddressBarSwitchToTab({
   switchToTab: (url: string) => void
 } {
   const [focusedUrl, setFocusedUrl] = useState<string | null>(null)
+  const [wasOpen, setWasOpen] = useState(open)
+  // Why during render: a list closed by Escape or blur must not reopen with Enter still aimed at
+  // a button the user left.
+  if (wasOpen !== open) {
+    setWasOpen(open)
+    if (!open) {
+      setFocusedUrl(null)
+    }
+  }
   // Why only while open: the scan follows every page update, which a closed bar never needs.
   const entryState = useAppStore(
     useShallow((state) => {
@@ -127,14 +136,18 @@ export function useBrowserAddressBarSwitchToTab({
     [dismissSuggestions, onChange, onNavigate, pageUrl, targetFor]
   )
 
+  // Why: a focused button whose tab has since closed or moved on no longer takes Enter.
+  const liveFocusedUrl =
+    focusedUrl !== null && targetFor({ url: focusedUrl, isSearch: false }) ? focusedUrl : null
+
   return useMemo(
     () => ({
       hasSwitchTarget: (row: SwitchableRow) => targetFor(row) !== undefined,
-      focusedUrl,
+      focusedUrl: liveFocusedUrl,
       handleTabKey,
       clearFocus: () => setFocusedUrl(null),
       switchToTab
     }),
-    [focusedUrl, handleTabKey, switchToTab, targetFor]
+    [handleTabKey, liveFocusedUrl, switchToTab, targetFor]
   )
 }
