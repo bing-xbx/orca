@@ -36,9 +36,13 @@ export function MobileBrowserLoadProgress({
 }): React.JSX.Element {
   const scale = useRef(new Animated.Value(0)).current
   const opacity = useRef(new Animated.Value(0)).current
-  const runningRef = useRef<{ animation: Animated.CompositeAnimation; loading: boolean } | null>(
-    null
-  )
+  const runningRef = useRef<{
+    animation: Animated.CompositeAnimation
+    loading: boolean
+    reducedMotion: boolean
+  } | null>(null)
+  // Why: native stopAnimation answers asynchronously, so a newer load or unmount voids its callback.
+  const generationRef = useRef(0)
   // Unknown counts as reduced, the same as LoadingSpinner.
   const reducedMotion = useReducedMotionEnabled() !== false
 
@@ -46,9 +50,10 @@ export function MobileBrowserLoadProgress({
     const running = runningRef.current
     if (loading) {
       // Why: a navigation that replaces one in flight keeps loading true, so the line carries on.
-      if (running?.loading) {
+      if (running?.loading && running.reducedMotion === reducedMotion) {
         return
       }
+      generationRef.current += 1
       running?.animation.stop()
       scale.setValue(reducedMotion ? 1 : 0)
       opacity.setValue(0)
@@ -59,12 +64,13 @@ export function MobileBrowserLoadProgress({
         return step
       })
       const animation = Animated.sequence([
-        Animated.delay(SHOW_DELAY_MS),
+        // A motion-preference switch mid-load swaps the animation without hiding it again.
+        Animated.delay(running?.loading ? 0 : SHOW_DELAY_MS),
         reducedMotion
           ? timing(opacity, 0.5, 150)
           : Animated.parallel([timing(opacity, 1, 150), Animated.sequence(trickle)])
       ])
-      runningRef.current = { animation, loading: true }
+      runningRef.current = { animation, loading: true, reducedMotion }
       animation.start()
       return
     }
@@ -73,7 +79,11 @@ export function MobileBrowserLoadProgress({
     }
     running.animation.stop()
     runningRef.current = null
+    const generation = ++generationRef.current
     opacity.stopAnimation((shownOpacity) => {
+      if (generation !== generationRef.current) {
+        return
+      }
       // Still inside the show delay: the load was fast enough to show nothing.
       if (shownOpacity === 0) {
         scale.setValue(0)
@@ -83,12 +93,18 @@ export function MobileBrowserLoadProgress({
       const fadeOut = timing(opacity, 0, 270)
       const animation =
         failed || reducedMotion ? fadeOut : Animated.sequence([timing(scale, 1, 180), fadeOut])
-      runningRef.current = { animation, loading: false }
+      runningRef.current = { animation, loading: false, reducedMotion }
       animation.start()
     })
   }, [failed, loading, opacity, reducedMotion, scale])
 
-  useEffect(() => () => runningRef.current?.animation.stop(), [])
+  useEffect(
+    () => () => {
+      generationRef.current += 1
+      runningRef.current?.animation.stop()
+    },
+    []
+  )
 
   return (
     <View pointerEvents="none" style={styles.clip}>
