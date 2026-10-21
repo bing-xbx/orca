@@ -212,7 +212,10 @@ describe('BrowserAddressBar autocomplete preview', () => {
       input.focus()
     })
 
-    await act(async () => typeInto(input, 'loc', 'insertText'))
+    // One key at a time: each keystroke lands on the same completion, which must stay selected.
+    for (const typed of ['l', 'lo', 'loc']) {
+      await act(async () => typeInto(input, typed, 'insertText'))
+    }
     expect(input.value).toBe('localhost:3000')
     expect([input.selectionStart, input.selectionEnd]).toEqual([3, 14])
 
