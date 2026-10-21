@@ -288,12 +288,6 @@ export default function BrowserAddressBar({
           switchToTab.switchToTab(selectedValue)
           return
         }
-        // Why: an inline completion shows the row without its scheme; open the row itself so
-        // an http:// page isn't upgraded to https:// by re-parsing the text.
-        if (inline && value === inline.text) {
-          handleSelect(inline.url)
-          return
-        }
         // Why: match Chrome — otherwise Enter navigates to the current input text,
         // not the highlighted dropdown row (click still picks a row directly).
         submitTypedValue()
@@ -340,9 +334,6 @@ export default function BrowserAddressBar({
       switchToTab,
       selectedRow,
       switchFocused,
-      inline,
-      value,
-      handleSelect,
       selectSuggestionAtIndex,
       restoreTypedQuery,
       dismissSuggestions,

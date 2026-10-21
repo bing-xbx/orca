@@ -196,7 +196,7 @@ describe('BrowserAddressBar autocomplete preview', () => {
     expect(onSubmit).not.toHaveBeenCalled()
   })
 
-  it('completes a visited host inline while typing, drops it on Backspace, and opens it on Enter', async () => {
+  it('completes a visited host inline while typing, drops it on Backspace, and submits it on Enter', async () => {
     const onNavigate = vi.fn()
     const onSubmit = vi.fn()
     await act(async () => {
@@ -222,8 +222,12 @@ describe('BrowserAddressBar autocomplete preview', () => {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
     })
 
-    expect(onNavigate).toHaveBeenCalledWith('http://localhost:3000/')
-    expect(onSubmit).not.toHaveBeenCalled()
+    // Enter goes through the pane's own submit, so its checks apply to completed text too.
+    expect(container.querySelector('[data-current-address-value="true"]')?.textContent).toBe(
+      'localhost:3000'
+    )
+    expect(onSubmit).toHaveBeenCalledTimes(1)
+    expect(onNavigate).not.toHaveBeenCalled()
   })
 
   it('switches to the tab already showing a suggestion when Tab then Enter picks its button', async () => {
