@@ -31,7 +31,7 @@ const OPEN_PAGE_TARGET = { pageId: 'page-2', workspaceId: 'workspace-2', worktre
 
 // The worktree's other open pages: one, showing mocks.openPageUrl when set.
 vi.mock('@/components/tab-bar/open-tab-search-entries', () => ({
-  selectOpenTabSearchEntryState: () => ({
+  selectOpenTabSearchBrowserPageState: () => ({
     browserPagesByWorkspace: mocks.browserPagesByWorkspace
   }),
   buildOpenTabSearchBrowserPages: () =>
