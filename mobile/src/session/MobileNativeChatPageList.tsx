@@ -379,8 +379,9 @@ export function MobileNativeChatPageList({
           emptyStateView
         ) : (
           // Keyed by the chat, so no row carries into another. Rows above the drawn ones aren't in the
-          // document; what the reader opened in them is kept in the chat's disclosure store.
-          <Fragment key={rowKeys.scope}>
+          // document; what the reader opened in them is kept in the chat's disclosure store. Block flow:
+          // in a column flexbox each token of a reply re-lays every drawn row.
+          <div key={rowKeys.scope}>
             {rows.slice(first).map((item, at) => {
               const index = first + at
               return (
@@ -391,7 +392,7 @@ export function MobileNativeChatPageList({
                 </Fragment>
               )
             })}
-          </Fragment>
+          </div>
         )}
         {footer}
       </MobileNativeChatGrowthHoldContext.Provider>
