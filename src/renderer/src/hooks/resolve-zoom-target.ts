@@ -13,11 +13,15 @@ function closestFocusedElement(element: unknown, selector: string): unknown {
   return null
 }
 
-const BROWSER_PAGE_ID_ATTRIBUTES = ['data-browser-page-pane-id', 'data-browser-page-viewport-id']
+const BROWSER_PAGE_ID_ATTRIBUTES = [
+  'data-browser-page-pane-id',
+  'data-browser-page-viewport-id',
+  'data-browser-page-menu-id'
+]
 
 /**
- * The browser page that holds focus: its address bar or toolbar, or the page itself, whose
- * <webview> lives in a viewport shell outside the pane.
+ * The browser page that holds focus: its address bar or toolbar, its open "..." menu, or the
+ * page itself. The page's <webview> and the menu both live outside the pane.
  */
 export function focusedBrowserPageId(activeElement: unknown): string | null {
   for (const attribute of BROWSER_PAGE_ID_ATTRIBUTES) {

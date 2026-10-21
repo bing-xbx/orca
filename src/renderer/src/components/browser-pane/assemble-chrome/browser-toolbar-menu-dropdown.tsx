@@ -45,6 +45,7 @@ import {
 } from './browser-toolbar-page-display-items'
 
 type BrowserToolbarMenuDropdownProps = {
+  browserPageId: string
   menuOpen: boolean
   onMenuOpenChange: (open: boolean) => void
   allProfiles: BrowserSessionProfile[]
@@ -66,6 +67,7 @@ type BrowserToolbarMenuDropdownProps = {
 }
 
 export function BrowserToolbarMenuDropdown({
+  browserPageId,
   menuOpen,
   onMenuOpenChange,
   allProfiles,
@@ -104,6 +106,7 @@ export function BrowserToolbarMenuDropdown({
       <DropdownMenuContent
         align="end"
         className="w-56"
+        data-browser-page-menu-id={browserPageId}
         onCloseAutoFocus={overflow.onMenuCloseAutoFocus}
       >
         <BrowserChromeFoldedMenuItems

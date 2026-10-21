@@ -54,6 +54,7 @@ describe('cookie-import Google disclosure footer', () => {
       'browser toolbar overflow',
       () => (
         <BrowserToolbarMenuDropdown
+          browserPageId="page-1"
           menuOpen
           onMenuOpenChange={vi.fn()}
           allProfiles={[]}

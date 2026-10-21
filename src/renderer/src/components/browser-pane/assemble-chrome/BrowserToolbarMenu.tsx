@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { emitBrowserCookieImportToast } from '@/lib/browser-cookie-import-toast'
 import { useAppStore } from '@/store'
@@ -10,6 +10,7 @@ import type {
   BrowserSiteColorScheme
 } from '../../../../../shared/browser-site-display'
 import type { BrowserPageZoomDirection } from '../../../../../shared/browser-page-zoom'
+import { addBrowserPageZoomEventListener } from '../host-guest/browser-page-zoom'
 import {
   browserViewportPresetToOverride,
   getBrowserViewportPreset
@@ -91,6 +92,19 @@ export function BrowserToolbarMenu({
     showSiteDisplay(window.api.browser.zoomPage({ browserPageId, direction }))
   const setSiteColorScheme = (colorScheme: BrowserSiteColorScheme | null): void =>
     showSiteDisplay(window.api.browser.setPageSiteColorScheme({ browserPageId, colorScheme }))
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return
+    }
+    // Why: Cmd/Ctrl +/-/0 pressed inside the open menu zoom the page through the pane, so read
+    // the result back; main answers invokes in order, so this read sees that zoom.
+    return addBrowserPageZoomEventListener((command) => {
+      if (command.browserPageId === browserPageId) {
+        void window.api.browser.getPageSiteDisplay({ browserPageId }).then(setSiteDisplay)
+      }
+    })
+  }, [browserPageId, menuOpen])
 
   useLayoutEffect(() => {
     // Why: step 3 falls back to the Import Cookies row inside this menu, so open
@@ -254,6 +268,7 @@ export function BrowserToolbarMenu({
   return (
     <>
       <BrowserToolbarMenuDropdown
+        browserPageId={browserPageId}
         menuOpen={menuOpen}
         onMenuOpenChange={handleMenuOpenChange}
         allProfiles={allProfiles}
