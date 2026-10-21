@@ -341,6 +341,7 @@ describe('getBrowserAddressBarInlineCompletion', () => {
       'http://localhost:3000/'
     ],
     ['www.ex', 'https://www.example.com/a', 'www.example.com', 'https://www.example.com/'],
+    ['ex', 'https://www.example.com/a', 'example.com', 'https://example.com/'],
     ['https://gi', 'https://github.com/x', 'https://github.com', 'https://github.com/'],
     [
       'GitHub.com/st',

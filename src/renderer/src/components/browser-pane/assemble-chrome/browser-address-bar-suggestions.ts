@@ -221,8 +221,12 @@ export function getBrowserAddressBarInlineCompletion(
   if (form === undefined) {
     return null
   }
-  return {
-    text: typed + form.slice(typed.length),
-    url: withinHost ? `${origin}/` : url
+  // Why: Enter submits the bar text through the pane's own checks, so the completion must go
+  // exactly where that text goes: the typed site for a host, the visited page for a path.
+  const text = typed + form.slice(typed.length)
+  const target = normalizeBrowserNavigationUrl(text)
+  if (!target || (!withinHost && target !== normalizeBrowserNavigationUrl(url))) {
+    return null
   }
+  return { text, url: target }
 }

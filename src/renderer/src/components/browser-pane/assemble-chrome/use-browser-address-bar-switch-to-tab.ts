@@ -11,12 +11,17 @@ import {
   type BrowserPagePaletteActivationTarget
 } from '@/lib/browser-page-palette-activation'
 import { isBlankBrowserUrl } from '@/lib/browser-palette-search'
-import { normalizeBrowserHistoryUrl } from '../../../../../shared/workspace-session-browser-history'
+import { normalizeBrowserNavigationUrl } from '../../../../../shared/browser-url'
 import { requestBrowserFocus } from '../host-guest/browser-focus'
 import { toDisplayUrl } from '../describe-page/browser-page-url-display'
 import type { BrowserAddressBarSuggestion } from './browser-address-bar-suggestions'
 
 type SwitchableRow = Pick<BrowserAddressBarSuggestion, 'url' | 'isSearch' | 'docLocation'>
+
+// Why not the history key: it drops any final "/", which can be part of a path or query value.
+function pageKey(url: string): string {
+  return normalizeBrowserNavigationUrl(url) ?? url
+}
 
 /**
  * "Switch to tab" for suggestions whose page is already open in another tab of this page's
@@ -72,7 +77,7 @@ export function useBrowserAddressBarSwitchToTab({
       return { targets: byUrl, pageUrl: null }
     }
     for (const entry of buildOpenTabSearchBrowserPages(entryState)) {
-      const key = normalizeBrowserHistoryUrl(entry.page.url)
+      const key = pageKey(entry.page.url)
       if (entry.page.id === pageId || isBlankBrowserUrl(entry.page.url) || byUrl.has(key)) {
         continue
       }
@@ -91,9 +96,7 @@ export function useBrowserAddressBarSwitchToTab({
 
   const targetFor = useCallback(
     (row: SwitchableRow) =>
-      row.isSearch || row.docLocation
-        ? undefined
-        : targets.get(normalizeBrowserHistoryUrl(row.url)),
+      row.isSearch || row.docLocation ? undefined : targets.get(pageKey(row.url)),
     [targets]
   )
 
