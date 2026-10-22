@@ -199,7 +199,7 @@ export class SshConnection {
   private systemSshControlMasterDisabledForSession = false
   private systemSshGssapiOnlyForSession = false
   private systemSshLoopbackRoute: SystemSshLoopbackRoute | null = null
-  private systemSshLoopbackRouteStarting = false
+  private systemSshLoopbackRouteStartingGeneration: number | null = null
   private useSystemSshTransport = false
   private credentialAbortController = new AbortController()
   private readonly pendingSsh2Clients = new Set<SshClient>()
@@ -1107,15 +1107,21 @@ export class SshConnection {
     const options = this.getSystemSshBuildArgsOptions()
     if (
       this.systemSshLoopbackRoute ||
-      this.systemSshLoopbackRouteStarting ||
+      this.systemSshLoopbackRouteStartingGeneration === connectGeneration ||
       !shouldUseSystemSshLoopbackRoute(this.target, this.systemSshResolvedConfig, options)
     ) {
       return
     }
-    this.systemSshLoopbackRouteStarting = true
+    // Why per generation: a start a reconnect superseded can still be in flight, and must not block the new one.
+    this.systemSshLoopbackRouteStartingGeneration = connectGeneration
+    const settle = (): void => {
+      if (this.systemSshLoopbackRouteStartingGeneration === connectGeneration) {
+        this.systemSshLoopbackRouteStartingGeneration = null
+      }
+    }
     startSystemSshLoopbackRoute(this.target, this.systemSshResolvedConfig, options).then(
       (route) => {
-        this.systemSshLoopbackRouteStarting = false
+        settle()
         if (!this.isCurrentConnectAttempt(connectGeneration) || !this.useSystemSshTransport) {
           route.dispose()
           return
@@ -1129,7 +1135,7 @@ export class SshConnection {
       },
       () => {
         // Why: per-command proxy logins still work; the route only makes them cheaper.
-        this.systemSshLoopbackRouteStarting = false
+        settle()
       }
     )
   }
