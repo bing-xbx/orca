@@ -27,6 +27,11 @@ import {
   type SystemSshBuildArgsOptions
 } from '../system-transport/system-ssh-args'
 import { spawnSystemSshCommand } from '../system-transport/system-ssh-command'
+import {
+  shouldUseSystemSshLoopbackRoute,
+  startSystemSshLoopbackRoute,
+  type SystemSshLoopbackRoute
+} from '../system-transport/system-ssh-loopback-route'
 import { removeControlSocketPath } from '../ssh-control-socket'
 import {
   INITIAL_RETRY_ATTEMPTS,
@@ -193,6 +198,8 @@ export class SshConnection {
   } | null = null
   private systemSshControlMasterDisabledForSession = false
   private systemSshGssapiOnlyForSession = false
+  private systemSshLoopbackRoute: SystemSshLoopbackRoute | null = null
+  private systemSshLoopbackRouteStarting = false
   private useSystemSshTransport = false
   private credentialAbortController = new AbortController()
   private readonly pendingSsh2Clients = new Set<SshClient>()
@@ -965,6 +972,7 @@ export class SshConnection {
               )
             ) {
               this.setState('connected')
+              this.startSystemSshLoopbackRoute(connectGeneration)
               resolve()
               return
             }
@@ -1088,7 +1096,42 @@ export class SshConnection {
     if (this.systemSshGssapiOnlyForSession) {
       options.gssapiOnly = true
     }
+    if (this.systemSshLoopbackRoute) {
+      options.loopbackRoute = this.systemSshLoopbackRoute.args
+    }
     return options
+  }
+
+  /** Off the connect path: commands keep the direct proxy route until the forward is proven. */
+  private startSystemSshLoopbackRoute(connectGeneration: number): void {
+    const options = this.getSystemSshBuildArgsOptions()
+    if (
+      this.systemSshLoopbackRoute ||
+      this.systemSshLoopbackRouteStarting ||
+      !shouldUseSystemSshLoopbackRoute(this.target, this.systemSshResolvedConfig, options)
+    ) {
+      return
+    }
+    this.systemSshLoopbackRouteStarting = true
+    startSystemSshLoopbackRoute(this.target, this.systemSshResolvedConfig, options).then(
+      (route) => {
+        this.systemSshLoopbackRouteStarting = false
+        if (!this.isCurrentConnectAttempt(connectGeneration) || !this.useSystemSshTransport) {
+          route.dispose()
+          return
+        }
+        this.systemSshLoopbackRoute = route
+        route.onExit(() => {
+          if (this.systemSshLoopbackRoute === route) {
+            this.systemSshLoopbackRoute = null
+          }
+        })
+      },
+      () => {
+        // Why: per-command proxy logins still work; the route only makes them cheaper.
+        this.systemSshLoopbackRouteStarting = false
+      }
+    )
   }
 
   // Why: ssh2 may destroy the proxy socket on auth failure, so credential retries need a fresh proxy process and Duplex stream.
@@ -1572,6 +1615,8 @@ export class SshConnection {
   }
 
   private resetSystemTransport(): void {
+    this.systemSshLoopbackRoute?.dispose()
+    this.systemSshLoopbackRoute = null
     this.systemSshResolvedConfig = null
     this.systemSshControlMasterDisabledForSession = false
     this.systemSshGssapiOnlyForSession = false

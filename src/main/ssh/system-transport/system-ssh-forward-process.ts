@@ -135,9 +135,11 @@ function stopOnOwnListenFailure(process: ChildProcess, localPort: number): void 
   process.once('exit', stop)
 }
 
+/** `listenerTimeoutMs` requires a listener by then instead of accepting a still-silent forward. */
 export function waitForSystemSshForwardStartup(
   process: ChildProcess,
-  localPort: number
+  localPort: number,
+  listenerTimeoutMs?: number
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let stderr = ''
@@ -189,8 +191,18 @@ export function waitForSystemSshForwardStartup(
     process.once('error', onError)
     process.once('exit', onExit)
     graceTimer = setTimeout(() => {
-      finish(resolve)
-    }, SYSTEM_SSH_FORWARD_STARTUP_GRACE_MS)
+      if (listenerTimeoutMs === undefined) {
+        finish(resolve)
+        return
+      }
+      finish(() =>
+        reject(
+          new Error(
+            `System SSH port forward did not listen on 127.0.0.1:${localPort} within ${listenerTimeoutMs}ms`
+          )
+        )
+      )
+    }, listenerTimeoutMs ?? SYSTEM_SSH_FORWARD_STARTUP_GRACE_MS)
     scheduleProbe()
   })
 }
