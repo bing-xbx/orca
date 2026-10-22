@@ -88,6 +88,11 @@ export async function startSystemSshLoopbackRoute(
     return {
       args,
       onExit: (callback) => {
+        // Why: the forward can exit between the probe and this registration, after 'exit' already fired.
+        if (forward.process.exitCode !== null || forward.process.signalCode !== null) {
+          callback()
+          return
+        }
         forward.process.once('exit', callback)
       },
       dispose

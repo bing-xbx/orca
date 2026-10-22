@@ -337,4 +337,21 @@ describe('startSystemSshLoopbackRoute', () => {
     expect(treeKillMock).toHaveBeenCalledWith(4242, { site: 'system-ssh-loopback-route' })
     await vi.waitFor(() => expect(forward.kill).toHaveBeenCalledWith('SIGTERM'))
   })
+
+  it('reports a forward that already exited before anyone listened for it', async () => {
+    const forward = createFakeProcess()
+    const probe = createFakeProcess()
+    spawnMock.mockReturnValueOnce(forward).mockImplementationOnce(() => {
+      answerProbe(probe, 0)
+      return probe
+    })
+    const route = await startSystemSshLoopbackRoute(createTarget(), createResolved(), {}, 'linux')
+    forward.exitCode = 255
+    forward.emit('exit', 255)
+
+    const onExit = vi.fn()
+    route.onExit(onExit)
+
+    expect(onExit).toHaveBeenCalledTimes(1)
+  })
 })

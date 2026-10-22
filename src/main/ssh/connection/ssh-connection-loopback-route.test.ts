@@ -135,4 +135,22 @@ describe('SshConnection loopback route', () => {
 
     expect(route.dispose).toHaveBeenCalled()
   })
+
+  it('does not start a route for a connection torn down as it reported connected', async () => {
+    let conn: SshConnection | null = null
+    conn = new SshConnection(
+      createTarget({ proxyCommand: 'ssh -W %h:%p bastion.example.com' }),
+      createCallbacks({
+        onStateChange: (_id, state) => {
+          if (state.status === 'connected') {
+            void conn?.disconnect({ quiet: true })
+          }
+        }
+      })
+    )
+
+    await conn.connect().catch(() => undefined)
+
+    expect(startRouteMock).not.toHaveBeenCalled()
+  })
 })

@@ -667,6 +667,8 @@ export class SshConnection {
   private startSystemSshLoopbackRoute(connectGeneration: number): void {
     const options = this.getSystemSshBuildArgsOptions()
     if (
+      !this.isCurrentConnectAttempt(connectGeneration) ||
+      !this.useSystemSshTransport ||
       this.systemSshLoopbackRoute ||
       this.systemSshLoopbackRouteStartingGeneration === connectGeneration ||
       !shouldUseSystemSshLoopbackRoute(this.target, this.systemSshResolvedConfig, options)
