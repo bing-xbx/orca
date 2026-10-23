@@ -107,6 +107,7 @@ export class SshConnection {
   private systemSshGssapiOnlyForSession = false
   private systemSshLoopbackRoute: SystemSshLoopbackRoute | null = null
   private systemSshLoopbackRouteStartingGeneration: number | null = null
+  private systemSshLoopbackRouteAbortController: AbortController | null = null
   private useSystemSshTransport = false
   private credentialAbortController = new AbortController()
   private readonly pendingSsh2Clients = new Set<SshClient>()
@@ -681,15 +682,28 @@ export class SshConnection {
     }
     // Why per generation: a start a reconnect superseded can still be in flight, and must not block the new one.
     this.systemSshLoopbackRouteStartingGeneration = connectGeneration
+    const controller = new AbortController()
+    this.systemSshLoopbackRouteAbortController = controller
     const settle = (): void => {
-      if (this.systemSshLoopbackRouteStartingGeneration === connectGeneration) {
+      if (this.systemSshLoopbackRouteAbortController === controller) {
         this.systemSshLoopbackRouteStartingGeneration = null
+        this.systemSshLoopbackRouteAbortController = null
       }
     }
-    startSystemSshLoopbackRoute(this.target, this.systemSshResolvedConfig, options).then(
+    startSystemSshLoopbackRoute(
+      this.target,
+      this.systemSshResolvedConfig,
+      options,
+      process.platform,
+      controller.signal
+    ).then(
       (route) => {
         settle()
-        if (!this.isCurrentConnectAttempt(connectGeneration) || !this.useSystemSshTransport) {
+        if (
+          controller.signal.aborted ||
+          !this.isCurrentConnectAttempt(connectGeneration) ||
+          !this.useSystemSshTransport
+        ) {
           route.dispose()
           return
         }
@@ -847,6 +861,9 @@ export class SshConnection {
   }
 
   private resetSystemTransport(): void {
+    this.systemSshLoopbackRouteAbortController?.abort()
+    this.systemSshLoopbackRouteAbortController = null
+    this.systemSshLoopbackRouteStartingGeneration = null
     this.systemSshLoopbackRoute?.dispose()
     this.systemSshLoopbackRoute = null
     this.systemSshResolvedConfig = null

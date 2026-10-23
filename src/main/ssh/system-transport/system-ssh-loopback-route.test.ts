@@ -77,7 +77,7 @@ function createResolved(overrides?: Partial<SshResolvedConfig>): SshResolvedConf
 }
 
 type FakeProcess = EventEmitter & {
-  pid: number
+  pid: number | undefined
   stdin: PassThrough
   stdout: PassThrough
   stderr: PassThrough
@@ -99,7 +99,7 @@ function createFakeProcess(): FakeProcess {
   return proc
 }
 
-function createFakeServer(): EventEmitter {
+function createFakeServer() {
   // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: the fields are assigned on the next lines, before the server is returned.
   const server = new EventEmitter() as EventEmitter & {
     listen: ReturnType<typeof vi.fn>
@@ -353,5 +353,158 @@ describe('startSystemSshLoopbackRoute', () => {
     route.onExit(onExit)
 
     expect(onExit).toHaveBeenCalledTimes(1)
+  })
+  it.each(['exit', 'signal'] as const)('does not kill a forward after %s', async (reason) => {
+    const forward = createFakeProcess()
+    const probe = createFakeProcess()
+    spawnMock.mockReturnValueOnce(forward).mockImplementationOnce(() => {
+      answerProbe(probe, 0)
+      return probe
+    })
+    const route = await startSystemSshLoopbackRoute(createTarget(), createResolved(), {}, 'win32')
+    if (reason === 'exit') {
+      forward.exitCode = 255
+    } else {
+      forward.signalCode = 'SIGTERM'
+    }
+    forward.emit('exit', forward.exitCode, forward.signalCode)
+    route.dispose()
+    route.dispose()
+    expect(treeKillMock).not.toHaveBeenCalled()
+    expect(forward.kill).not.toHaveBeenCalled()
+  })
+  it('cancels listener polling and closes its socket without waiting for child exit', async () => {
+    vi.useFakeTimers()
+    try {
+      const forward = createFakeProcess()
+      const socket = Object.assign(new EventEmitter(), { setTimeout: vi.fn(), destroy: vi.fn() })
+      spawnMock.mockReturnValueOnce(forward)
+      connectMock.mockReturnValue(socket)
+      const controller = new AbortController()
+      const pending = startSystemSshLoopbackRoute(
+        createTarget(),
+        createResolved(),
+        {},
+        'linux',
+        controller.signal
+      )
+      const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+      await vi.advanceTimersByTimeAsync(50)
+      expect(connectMock).toHaveBeenCalledTimes(1)
+      controller.abort()
+      await rejected
+      expect(forward.kill).toHaveBeenCalledExactlyOnceWith('SIGTERM')
+      expect(socket.destroy).toHaveBeenCalledTimes(1)
+      expect(socket.eventNames()).toEqual([])
+      expect(forward.listenerCount('error')).toBe(0)
+      expect(vi.getTimerCount()).toBe(0)
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(connectMock).toHaveBeenCalledTimes(1)
+      expect(spawnMock).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cancels the login probe and forward without waiting for probe timeout', async () => {
+    vi.useFakeTimers()
+    try {
+      const forward = createFakeProcess()
+      const probe = createFakeProcess()
+      spawnMock.mockReturnValueOnce(forward).mockReturnValueOnce(probe)
+      const controller = new AbortController()
+      const pending = startSystemSshLoopbackRoute(
+        createTarget(),
+        createResolved(),
+        {},
+        'linux',
+        controller.signal
+      )
+      const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+      await vi.advanceTimersByTimeAsync(50)
+      expect(spawnMock).toHaveBeenCalledTimes(2)
+      controller.abort()
+      await rejected
+      expect(forward.kill).toHaveBeenCalledExactlyOnceWith('SIGTERM')
+      expect(probe.kill).toHaveBeenCalledExactlyOnceWith('SIGTERM')
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not spawn a forward if cancelled during port reservation', async () => {
+    const server = createFakeServer()
+    createServerMock.mockReturnValueOnce(server)
+    server.listen.mockImplementationOnce(() => server)
+    const controller = new AbortController()
+    const pending = startSystemSshLoopbackRoute(
+      createTarget(),
+      createResolved(),
+      {},
+      'linux',
+      controller.signal
+    )
+    controller.abort()
+    server.emit('listening')
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+    expect(spawnMock).not.toHaveBeenCalled()
+  })
+
+  it('disposes a live Windows route once and avoids fallback after child exit', async () => {
+    const forward = createFakeProcess()
+    const probe = createFakeProcess()
+    spawnMock.mockReturnValueOnce(forward).mockImplementationOnce(() => {
+      answerProbe(probe, 0)
+      return probe
+    })
+    const route = await startSystemSshLoopbackRoute(createTarget(), createResolved(), {}, 'win32')
+    let finishKill = (_stopped: boolean): void => {}
+    treeKillMock.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishKill = resolve
+        })
+    )
+    route.dispose()
+    route.dispose()
+    expect(treeKillMock).toHaveBeenCalledTimes(1)
+    forward.exitCode = 255
+    forward.emit('exit', 255)
+    finishKill(false)
+    await Promise.resolve()
+    expect(forward.kill).not.toHaveBeenCalled()
+  })
+  it('uses direct cleanup for a live forward with no PID', async () => {
+    const forward = createFakeProcess()
+    forward.pid = undefined
+    const probe = createFakeProcess()
+    spawnMock.mockReturnValueOnce(forward).mockImplementationOnce(() => {
+      answerProbe(probe, 0)
+      return probe
+    })
+    const route = await startSystemSshLoopbackRoute(createTarget(), createResolved(), {}, 'win32')
+    route.dispose()
+    route.dispose()
+    expect(treeKillMock).not.toHaveBeenCalled()
+    expect(forward.kill).toHaveBeenCalledExactlyOnceWith('SIGTERM')
+  })
+  it('closes a live login probe when its output stream errors', async () => {
+    vi.useFakeTimers()
+    try {
+      const forward = createFakeProcess()
+      const probe = createFakeProcess()
+      spawnMock.mockReturnValueOnce(forward).mockReturnValueOnce(probe)
+      const pending = startSystemSshLoopbackRoute(createTarget(), createResolved(), {}, 'linux')
+      const rejected = expect(pending).rejects.toThrow('probe output failed')
+      await vi.advanceTimersByTimeAsync(50)
+      probe.stdout.emit('error', new Error('probe output failed'))
+      await rejected
+      expect(probe.kill).toHaveBeenCalledExactlyOnceWith('SIGTERM')
+      expect(forward.kill).toHaveBeenCalledExactlyOnceWith('SIGTERM')
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

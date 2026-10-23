@@ -3,7 +3,8 @@
  * One held `ssh -N -L` pays the ProxyCommand/ProxyJump handshake once; later commands log in over
  * 127.0.0.1 through it instead of re-running the proxy for every exec.
  */
-import type { ChildProcess } from 'node:child_process'
+import type { ChildProcessHandle as ChildProcess } from '@orca/process-host/process-spec'
+import { createSshOperationAbortError } from '../connection/ssh-exec-options'
 import type { SshTarget } from '../../../shared/ssh-types'
 import { terminateWindowsProcessTree } from '../../windows-process-tree-kill'
 import type { SshResolvedConfig } from '../config/ssh-g-config-resolution'
@@ -64,27 +65,44 @@ export async function startSystemSshLoopbackRoute(
   target: SshTarget,
   resolved: SshResolvedConfig | null,
   options: SystemSshBuildArgsOptions,
-  platform: NodeJS.Platform = process.platform
+  platform: NodeJS.Platform = process.platform,
+  signal?: AbortSignal
 ): Promise<SystemSshLoopbackRoute> {
+  signal?.throwIfAborted()
   const remotePort = resolved?.port || target.port || 22
   // Why: the forward itself must take the real proxy route, never an existing loopback one.
-  const forward = await startSystemSshPortForwardProcess(target, 0, 'localhost', remotePort, {
-    ...options,
-    loopbackRoute: undefined
-  })
-  const dispose = (): void => stopLoopbackForward(forward.process, forward.dispose, platform)
+  const forward = await startSystemSshPortForwardProcess(
+    target,
+    0,
+    'localhost',
+    remotePort,
+    { ...options, loopbackRoute: undefined },
+    signal
+  )
+  let disposed = false
+  const dispose = (): void => {
+    if (disposed) {
+      return
+    }
+    disposed = true
+    stopLoopbackForward(forward.process, forward.dispose, platform)
+  }
+  signal?.addEventListener('abort', dispose, { once: true })
   try {
+    signal?.throwIfAborted()
     await waitForSystemSshForwardStartup(
       forward.process,
       forward.localPort,
-      SYSTEM_SSH_LOOPBACK_ROUTE_LISTEN_TIMEOUT_MS
+      SYSTEM_SSH_LOOPBACK_ROUTE_LISTEN_TIMEOUT_MS,
+      signal
     )
     const args = {
       localPort: forward.localPort,
       hostKeyAlias: getLoopbackRouteHostKeyAlias(target, resolved)
     }
     // Why: a listening forward does not prove sshd allows it (AllowTcpForwarding) or that auth works over it.
-    await probeLoopbackRoute(target, { ...options, loopbackRoute: args })
+    await probeLoopbackRoute(target, { ...options, loopbackRoute: args }, signal)
+    signal?.throwIfAborted()
     return {
       args,
       onExit: (callback) => {
@@ -100,6 +118,8 @@ export async function startSystemSshLoopbackRoute(
   } catch (error) {
     dispose()
     throw error
+  } finally {
+    signal?.removeEventListener('abort', dispose)
   }
 }
 
@@ -108,6 +128,9 @@ function stopLoopbackForward(
   killForward: () => void,
   platform: NodeJS.Platform
 ): void {
+  if (forwardProcess.exitCode !== null || forwardProcess.signalCode !== null) {
+    return
+  }
   const pid = forwardProcess.pid
   if (platform !== 'win32' || !pid) {
     killForward()
@@ -115,13 +138,18 @@ function stopLoopbackForward(
   }
   // Why: Windows does not end a killed ssh's ProxyCommand child, which would keep the proxy tunnel open.
   void terminateWindowsProcessTree(pid, { site: 'system-ssh-loopback-route' }).then((stopped) => {
-    if (!stopped) {
+    if (!stopped && forwardProcess.exitCode === null && forwardProcess.signalCode === null) {
       killForward()
     }
   })
 }
 
-function probeLoopbackRoute(target: SshTarget, options: SystemSshBuildArgsOptions): Promise<void> {
+function probeLoopbackRoute(
+  target: SshTarget,
+  options: SystemSshBuildArgsOptions,
+  signal?: AbortSignal
+): Promise<void> {
+  signal?.throwIfAborted()
   const channel = spawnSystemSshCommand(target, `echo ${LOOPBACK_ROUTE_PROBE_MARKER}`, {
     ...options,
     nonInteractive: true,
@@ -129,25 +157,46 @@ function probeLoopbackRoute(target: SshTarget, options: SystemSshBuildArgsOption
   })
   return new Promise((resolve, reject) => {
     let stdout = ''
-    const timeout = setTimeout(() => {
-      channel.close()
-      reject(new Error('System SSH loopback route probe timed out'))
-    }, SYSTEM_SSH_LOOPBACK_ROUTE_PROBE_TIMEOUT_MS)
-    channel.on('data', (data: Buffer) => {
-      stdout += data.toString('utf-8')
-    })
-    channel.stderr.resume()
-    channel.once('error', (error: Error) => {
-      clearTimeout(timeout)
-      reject(error)
-    })
-    channel.once('close', (code: number | null) => {
-      clearTimeout(timeout)
-      if (code === 0 && stdout.includes(LOOPBACK_ROUTE_PROBE_MARKER)) {
-        resolve()
+    let settled = false
+    const finish = (error?: Error, closeChannel = false): void => {
+      if (settled) {
         return
       }
-      reject(new Error(`System SSH loopback route probe failed (exit ${code ?? 'unknown'})`))
-    })
+      settled = true
+      clearTimeout(timeout)
+      signal?.removeEventListener('abort', onAbort)
+      channel.off('data', onData)
+      channel.off('close', onClose)
+      if (error) {
+        if (closeChannel) {
+          channel.close()
+        }
+        reject(error)
+      } else {
+        resolve()
+      }
+    }
+    const onAbort = (): void => finish(createSshOperationAbortError(), true)
+    const onData = (data: Buffer): void => {
+      stdout += data.toString('utf-8')
+    }
+    const onClose = (code: number | null): void => {
+      finish(
+        code === 0 && stdout.includes(LOOPBACK_ROUTE_PROBE_MARKER)
+          ? undefined
+          : new Error(`System SSH loopback route probe failed (exit ${code ?? 'unknown'})`)
+      )
+    }
+    const timeout = setTimeout(() => {
+      finish(new Error('System SSH loopback route probe timed out'), true)
+    }, SYSTEM_SSH_LOOPBACK_ROUTE_PROBE_TIMEOUT_MS)
+    channel.on('data', onData)
+    channel.stderr.resume()
+    channel.once('error', (error: Error) => finish(error, true))
+    channel.once('close', onClose)
+    signal?.addEventListener('abort', onAbort, { once: true })
+    if (signal?.aborted) {
+      onAbort()
+    }
   })
 }
